@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -9,6 +10,7 @@ import {
 } from "react-native";
 
 import Card from "../components/card.js";
+import { cores } from "../constants/tema.js";
 import {
   buscarDolar,
   buscarIpca12m,
@@ -26,6 +28,7 @@ export default function App() {
   const [cripto, setCripto] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
+  const [atualizadoEm, setAtualizadoEm] = useState(null);
 
   async function carregarDados() {
     try {
@@ -43,9 +46,15 @@ export default function App() {
       setSelic(selicMeta);
       setDolar(dolarVenda);
       setCripto(criptos);
+      setAtualizadoEm(
+        new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
     } catch (e) {
       setErro(
-        "Não foi possível carregar os dados. Puxe a tela para tentar de novo.",
+        "Não foi possível carregar os dados. Puxe a tela para baixo para tentar de novo.",
       );
     } finally {
       setCarregando(false);
@@ -56,66 +65,82 @@ export default function App() {
     carregarDados();
   }, []);
 
-  function corVariacao(numero) {
-    return numero >= 0 ? "#1a8f3c" : "#c62828";
-  }
+  const primeiraCarga = carregando && !dolar;
 
   return (
     <View style={estilos.tela}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" backgroundColor={cores.fundo} />
       <ScrollView
         contentContainerStyle={estilos.conteudo}
         refreshControl={
-          <RefreshControl refreshing={carregando} onRefresh={carregarDados} />
+          <RefreshControl
+            refreshing={carregando}
+            onRefresh={carregarDados}
+            tintColor={cores.destaque}
+            colors={[cores.destaque]}
+            progressBackgroundColor={cores.card}
+          />
         }
       >
         <Text style={estilos.titulo}>Indicadores</Text>
+        <Text style={estilos.subtitulo}>
+          {atualizadoEm ? `Atualizado às ${atualizadoEm}` : "Buscando dados..."}
+        </Text>
+
         {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
 
-        <Text style={estilos.secao}>Economia</Text>
-        {ipca && (
-          <Card
-            titulo="IPCA (último mês)"
-            valor={formatarPercentual(ipca.valor)}
-            detalhe={`Referente a ${ipca.data}`}
-          />
-        )}
-        {ipca12m && (
-          <Card
-            titulo="IPCA (acumulado 12 meses)"
-            valor={formatarPercentual(ipca12m.valor)}
-            detalhe={`Referente a ${ipca12m.data}`}
-          />
-        )}
-        {selic && (
-          <Card
-            titulo="Selic (meta)"
-            valor={formatarPercentual(selic.valor)}
-            detalhe={`Atualizada em ${selic.data}`}
-          />
-        )}
-        {dolar && (
-          <Card
-            titulo="Dólar (venda)"
-            valor={formatarReais(dolar.valor)}
-            detalhe={`Em ${dolar.data}`}
+        {primeiraCarga && (
+          <ActivityIndicator
+            size="large"
+            color={cores.destaque}
+            style={{ marginTop: 40 }}
           />
         )}
 
-        <Text style={estilos.secao}>Criptomoedas</Text>
+        {dolar && (
+          <>
+            <Text style={estilos.secao}>Economia</Text>
+            <View style={estilos.grade}>
+              <Card
+                metade
+                titulo="IPCA do mês"
+                valor={formatarPercentual(ipca.valor)}
+                detalhe={`Ref. ${ipca.data}`}
+              />
+              <Card
+                metade
+                titulo="IPCA 12 meses"
+                valor={formatarPercentual(ipca12m.valor)}
+                detalhe={`Ref. ${ipca12m.data}`}
+              />
+              <Card
+                metade
+                titulo="Selic (meta)"
+                valor={formatarPercentual(selic.valor)}
+                detalhe={`Desde ${selic.data}`}
+              />
+              <Card
+                metade
+                titulo="Dólar (venda)"
+                valor={formatarReais(dolar.valor)}
+                detalhe={`Em ${dolar.data}`}
+              />
+            </View>
+          </>
+        )}
+
         {cripto && (
           <>
+            <Text style={estilos.secao}>Criptomoedas</Text>
             <Card
               titulo="Bitcoin (BTC)"
               valor={formatarReais(cripto.bitcoin.brl)}
-              detalhe={`${formatarPercentual(cripto.bitcoin.brl_24h_change)} em 24h`}
-              corDetalhe={corVariacao(cripto.bitcoin.brl_24h_change)}
+              variacao={cripto.bitcoin.brl_24h_change}
             />
             <Card
               titulo="Ethereum (ETH)"
               valor={formatarReais(cripto.ethereum.brl)}
-              detalhe={`${formatarPercentual(cripto.ethereum.brl_24h_change)} em 24h`}
-              corDetalhe={corVariacao(cripto.ethereum.brl_24h_change)}
+              variacao={cripto.ethereum.brl_24h_change}
             />
           </>
         )}
@@ -125,15 +150,21 @@ export default function App() {
 }
 
 const estilos = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: "#f4f5f7" },
-  conteudo: { padding: 20, paddingTop: 60 },
-  titulo: { fontSize: 28, fontWeight: "700", color: "#111", marginBottom: 8 },
+  tela: { flex: 1, backgroundColor: cores.fundo },
+  conteudo: { padding: 20, paddingTop: 64, paddingBottom: 40 },
+  titulo: { fontSize: 32, fontWeight: "800", color: cores.textoPrincipal },
+  subtitulo: { fontSize: 13, color: cores.textoSecundario, marginTop: 4 },
   secao: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginTop: 20,
-    marginBottom: 10,
+    fontSize: 16,
+    fontWeight: "700",
+    color: cores.destaque,
+    marginTop: 28,
+    marginBottom: 12,
   },
-  erro: { color: "#c62828", marginVertical: 10 },
+  grade: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  erro: { color: cores.negativo, marginTop: 16 },
 });
