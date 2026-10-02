@@ -1,10 +1,22 @@
-import { useState, useEffect } from "react";
-import { View, Text, ScrollView, RefreshControl, StyleSheet, StatusBar } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import Card from "./src/components/Card";
-import { formatarReais, formatarPercentual } from "./src/utils/formatar";
-import { buscarIpcaMensal, buscarIpca12m, buscarSelic, buscarDolar } from "./src/services/bcb";
-import { buscarCripto } from "./src/services/coingecko";
+import Card from "../components/card.js";
+import {
+  buscarDolar,
+  buscarIpca12m,
+  buscarIpcaMensal,
+  buscarSelic,
+} from "../services/bcb";
+import { buscarCripto } from "../services/coingecko";
+import { formatarPercentual, formatarReais } from "../utils/formatar";
 
 export default function App() {
   const [ipca, setIpca] = useState(null);
@@ -18,20 +30,23 @@ export default function App() {
   async function carregarDados() {
     try {
       setErro(null);
-      const [ipcaMes, ipcaAno, selicMeta, dolarVenda, criptos] = await Promise.all([
-        buscarIpcaMensal(),
-        buscarIpca12m(),
-        buscarSelic(),
-        buscarDolar(),
-        buscarCripto(),
-      ]);
+      const [ipcaMes, ipcaAno, selicMeta, dolarVenda, criptos] =
+        await Promise.all([
+          buscarIpcaMensal(),
+          buscarIpca12m(),
+          buscarSelic(),
+          buscarDolar(),
+          buscarCripto(),
+        ]);
       setIpca(ipcaMes);
       setIpca12m(ipcaAno);
       setSelic(selicMeta);
       setDolar(dolarVenda);
       setCripto(criptos);
     } catch (e) {
-      setErro("Não foi possível carregar os dados. Puxe a tela para tentar de novo.");
+      setErro(
+        "Não foi possível carregar os dados. Puxe a tela para tentar de novo.",
+      );
     } finally {
       setCarregando(false);
     }
@@ -50,16 +65,42 @@ export default function App() {
       <StatusBar barStyle="dark-content" />
       <ScrollView
         contentContainerStyle={estilos.conteudo}
-        refreshControl={<RefreshControl refreshing={carregando} onRefresh={carregarDados} />}
+        refreshControl={
+          <RefreshControl refreshing={carregando} onRefresh={carregarDados} />
+        }
       >
         <Text style={estilos.titulo}>Indicadores</Text>
         {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
 
         <Text style={estilos.secao}>Economia</Text>
-        {ipca && <Card titulo="IPCA (último mês)" valor={formatarPercentual(ipca.valor)} detalhe={`Referente a ${ipca.data}`} />}
-        {ipca12m && <Card titulo="IPCA (acumulado 12 meses)" valor={formatarPercentual(ipca12m.valor)} detalhe={`Referente a ${ipca12m.data}`} />}
-        {selic && <Card titulo="Selic (meta)" valor={formatarPercentual(selic.valor)} detalhe={`Atualizada em ${selic.data}`} />}
-        {dolar && <Card titulo="Dólar (venda)" valor={formatarReais(dolar.valor)} detalhe={`Em ${dolar.data}`} />}
+        {ipca && (
+          <Card
+            titulo="IPCA (último mês)"
+            valor={formatarPercentual(ipca.valor)}
+            detalhe={`Referente a ${ipca.data}`}
+          />
+        )}
+        {ipca12m && (
+          <Card
+            titulo="IPCA (acumulado 12 meses)"
+            valor={formatarPercentual(ipca12m.valor)}
+            detalhe={`Referente a ${ipca12m.data}`}
+          />
+        )}
+        {selic && (
+          <Card
+            titulo="Selic (meta)"
+            valor={formatarPercentual(selic.valor)}
+            detalhe={`Atualizada em ${selic.data}`}
+          />
+        )}
+        {dolar && (
+          <Card
+            titulo="Dólar (venda)"
+            valor={formatarReais(dolar.valor)}
+            detalhe={`Em ${dolar.data}`}
+          />
+        )}
 
         <Text style={estilos.secao}>Criptomoedas</Text>
         {cripto && (
@@ -87,6 +128,12 @@ const estilos = StyleSheet.create({
   tela: { flex: 1, backgroundColor: "#f4f5f7" },
   conteudo: { padding: 20, paddingTop: 60 },
   titulo: { fontSize: 28, fontWeight: "700", color: "#111", marginBottom: 8 },
-  secao: { fontSize: 18, fontWeight: "600", color: "#333", marginTop: 20, marginBottom: 10 },
+  secao: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginTop: 20,
+    marginBottom: 10,
+  },
   erro: { color: "#c62828", marginVertical: 10 },
 });
