@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "indicadores",
+    "name": "Economia Hoje",
     "slug": "indicadores",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,7 +20,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
