@@ -1,56 +1,54 @@
-# Welcome to your Expo app 👋
+# Economia Hoje
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App feito com Expo (React Native) que mostra indicadores financeiros (IPCA, Selic, dólar, Bitcoin e Ethereum), com login, favoritos e versão web. Roda no celular (Expo Go) e no navegador, com layout diferente em cada um.
 
-## Get started
+## O que o app tem (possibilidades da Release 5)
 
-1. Install dependencies
+| Possibilidade | Como foi feito | Onde |
+|---|---|---|
+| Autenticação real | Login e cadastro com Supabase Auth | `src/app/login.tsx`, `src/lib/supabase.ts` |
+| Segurança | Telas protegidas por sessão + RLS no banco (cada pessoa só vê os próprios dados) | `src/app/_layout.tsx`, `supabase/schema.sql` |
+| Persistência + CRUD | Favoritos no Supabase: criar, listar, editar a nota e apagar | `src/services/favoritos.ts`, `src/app/(tabs)/favoritos.tsx` |
+| Offline | Últimos dados ficam salvos no aparelho (AsyncStorage) | `src/services/cache.ts` |
+| PWA | Manifesto, ícones e service worker | `public/` |
+| Publicação | Site estático no Render | `render.yaml` |
+| Acessibilidade | `accessibilityLabel` nos botões e campos | telas e `cartao.tsx` |
 
+## Como funciona
+
+```
+src/app/_layout.tsx          decide: logado -> abas | deslogado -> login
+src/app/login.tsx            entrar / criar conta
+src/app/(tabs)/_layout.tsx   abas (embaixo no celular, na lateral no desktop)
+src/app/(tabs)/index.tsx     Painel com os cartões
+src/app/(tabs)/favoritos.tsx lista, edita e apaga favoritos
+src/app/(tabs)/perfil.tsx    e-mail e botão Sair
+src/components/cartao.tsx    cartão reutilizado (com animação e estrela)
+src/services/api.ts          busca Banco Central e CoinGecko
+src/services/favoritos.ts    CRUD no Supabase
+src/services/cache.ts        modo offline
+src/lib/supabase.ts          conexão com o Supabase
+```
+
+## Como rodar
+
+1. Instale as dependências:
    ```bash
    npm install
    ```
-
-2. Start the app
-
+2. No [Supabase](https://supabase.com), crie um projeto e:
+   - **SQL Editor**: cole e execute `supabase/schema.sql` (cria a tabela `favoritos` com RLS).
+   - **Authentication > Sign In / Providers > Email**: para testar mais fácil, desligue "Confirm email".
+   - **Project Settings > API**: copie a *Project URL* e a chave *anon*.
+3. Copie `.env.example` para `.env` e preencha as duas variáveis. Nunca use a chave `service_role`.
+4. Inicie:
    ```bash
-   npx expo start
+   npx expo start --web   # navegador
+   npx expo start         # celular (Expo Go, leia o QR code)
    ```
 
-In the output, you'll find options to open the app in a
+## Publicar no Render
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+1. No Render, crie um **Blueprint** (ou Static Site) apontando para este repositório; ele lê o `render.yaml`.
+2. Em **Environment**, preencha `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+3. No Supabase, em **Authentication > URL Configuration**, coloque o endereço do site do Render em *Site URL*.
