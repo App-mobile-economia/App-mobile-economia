@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { cores } from '@/constants/cores';
@@ -16,7 +16,7 @@ type Props = {
 
 export default function Cartao({ indicador, favorito, onFavoritar, atraso, largura }: Props) {
   // Animação de entrada: o cartão aparece (opacidade) e sobe um pouco.
-  const entrada = useRef(new Animated.Value(0)).current;
+  const [entrada] = useState(() => new Animated.Value(0));
   useEffect(() => {
     Animated.timing(entrada, { toValue: 1, duration: 500, delay: atraso, useNativeDriver: true }).start();
   }, [entrada, atraso]);

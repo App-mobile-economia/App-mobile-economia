@@ -23,8 +23,8 @@ export default function Painel() {
   const [hora, setHora] = useState<string | null>(null);
   const [erro, setErro] = useState('');
 
+  // Busca os dados (a tela já começa com carregando = true).
   async function carregar() {
-    setCarregando(true);
     const novos = await buscarTudo();
     const salvo = await lerCache();
 
@@ -46,6 +46,12 @@ export default function Painel() {
     setCarregando(false);
   }
 
+  // Usada ao puxar a tela para atualizar.
+  async function atualizar() {
+    setCarregando(true);
+    await carregar();
+  }
+
   async function carregarFavoritos() {
     try {
       setFavoritos(await listarFavoritos());
@@ -54,7 +60,9 @@ export default function Painel() {
     }
   }
 
+  // Carrega os dados quando a tela abre. Os setState de carregar() só rodam depois do await.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     carregar();
   }, []);
 
@@ -87,7 +95,7 @@ export default function Painel() {
       <ScrollView
         contentContainerStyle={estilos.conteudo}
         refreshControl={
-          <RefreshControl refreshing={carregando} onRefresh={carregar} tintColor={cores.destaque} />
+          <RefreshControl refreshing={carregando} onRefresh={atualizar} tintColor={cores.destaque} />
         }>
         <View style={[estilos.centro, desktop && { paddingTop: 24 }]}>
           <Text style={estilos.titulo}>{NOME_APP}</Text>
