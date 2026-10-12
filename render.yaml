@@ -1,9 +1,15 @@
 services:
   - type: web
-    name: indicadores
+    name: economia-hoje
     runtime: static
     buildCommand: npm install && npx expo export -p web
     staticPublishPath: dist
+    envVars:
+      # Preencher no painel do Render (Environment). Ficam embutidas no build.
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
     routes:
       - type: rewrite
         source: /*

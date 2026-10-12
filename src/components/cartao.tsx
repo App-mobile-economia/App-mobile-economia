@@ -1,82 +1,70 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { cores } from '@/constants/cores';
+import { Indicador } from '@/services/api';
 import { formatarPercentual } from '@/utils/formatadores';
 
 type Props = {
-  titulo: string;
-  valor: string;
-  icone: keyof typeof Ionicons.glyphMap;
-  detalhe?: string;
-  variacao?: number;
-  atraso?: number;
-  largura?: `${number}%`;
+  indicador: Indicador;
+  favorito: boolean;
+  onFavoritar: () => void;
+  atraso: number; // espera (ms) antes da animação, para os cartões entrarem em sequência
+  largura: `${number}%`;
 };
 
-export default function Cartao({ titulo, valor, icone, detalhe, variacao, atraso = 0, largura }: Props) {
+export default function Cartao({ indicador, favorito, onFavoritar, atraso, largura }: Props) {
+  // Animação de entrada: o cartão aparece (opacidade) e sobe um pouco.
   const entrada = useRef(new Animated.Value(0)).current;
-  const [sobre, setSobre] = useState(false);
-
   useEffect(() => {
-    Animated.timing(entrada, {
-      toValue: 1,
-      duration: 500,
-      delay: atraso,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(entrada, { toValue: 1, duration: 500, delay: atraso, useNativeDriver: true }).start();
   }, [entrada, atraso]);
 
+  const { titulo, icone, valor, detalhe, variacao } = indicador;
   const subiu = (variacao ?? 0) >= 0;
 
   return (
     <Animated.View
-      style={{
-        width: largura,
-        opacity: entrada,
-        transform: [{ translateY: entrada.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
-      }}>
-      <Pressable
-        onHoverIn={() => setSobre(true)}
-        onHoverOut={() => setSobre(false)}
-        style={({ pressed }) => [
-          estilos.card,
-          sobre && estilos.sobre,
-          pressed && { transform: [{ scale: 0.98 }] },
-        ]}>
-        <View style={estilos.topo}>
-          <View style={estilos.icone}>
-            <Ionicons name={icone} size={20} color={cores.destaque} />
-          </View>
-          <Text style={estilos.titulo} numberOfLines={1}>
-            {titulo}
+      style={[
+        estilos.card,
+        {
+          width: largura,
+          opacity: entrada,
+          transform: [{ translateY: entrada.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+        },
+      ]}>
+      <View style={estilos.topo}>
+        <View style={estilos.icone}>
+          <Ionicons name={icone} size={20} color={cores.destaque} />
+        </View>
+        <Text style={estilos.titulo} numberOfLines={1}>
+          {titulo}
+        </Text>
+        <Pressable
+          onPress={onFavoritar}
+          accessibilityRole="button"
+          accessibilityLabel={favorito ? `Remover ${titulo} dos favoritos` : `Favoritar ${titulo}`}>
+          <Ionicons name={favorito ? 'star' : 'star-outline'} size={22} color={cores.destaque} />
+        </Pressable>
+      </View>
+
+      <Text style={estilos.valor}>{valor}</Text>
+
+      {typeof variacao === 'number' && (
+        <View style={[estilos.etiqueta, { backgroundColor: subiu ? cores.positivoFundo : cores.negativoFundo }]}>
+          <Ionicons
+            name={subiu ? 'trending-up' : 'trending-down'}
+            size={14}
+            color={subiu ? cores.positivo : cores.negativo}
+          />
+          <Text style={{ color: subiu ? cores.positivo : cores.negativo, fontWeight: '600', fontSize: 13 }}>
+            {formatarPercentual(Math.abs(variacao))} em 24h
           </Text>
         </View>
-        <Text style={estilos.valor} adjustsFontSizeToFit numberOfLines={1}>
-          {valor}
-        </Text>
+      )}
 
-        {typeof variacao === 'number' && (
-          <View
-            style={[
-              estilos.etiqueta,
-              { backgroundColor: subiu ? cores.positivoFundo : cores.negativoFundo },
-            ]}>
-            <Ionicons
-              name={subiu ? 'trending-up' : 'trending-down'}
-              size={14}
-              color={subiu ? cores.positivo : cores.negativo}
-            />
-            <Text style={{ color: subiu ? cores.positivo : cores.negativo, fontWeight: '600', fontSize: 13 }}>
-              {formatarPercentual(Math.abs(variacao))} em 24h
-            </Text>
-          </View>
-        )}
-
-        {detalhe ? <Text style={estilos.detalhe}>{detalhe}</Text> : null}
-      </Pressable>
+      {detalhe ? <Text style={estilos.detalhe}>{detalhe}</Text> : null}
     </Animated.View>
   );
 }
@@ -89,7 +77,6 @@ const estilos = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
-  sobre: { backgroundColor: cores.cardHover, borderColor: cores.destaque },
   topo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   icone: {
     width: 36,
