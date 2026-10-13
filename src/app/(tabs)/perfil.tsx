@@ -3,11 +3,21 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ProtegidoPorBiometria from '@/components/protegido-por-biometria';
 import { NOME_APP } from '@/constants/app';
 import { cores } from '@/constants/cores';
 import { supabase } from '@/lib/supabase';
 
+// A aba só abre depois da digital ou do rosto.
 export default function Perfil() {
+  return (
+    <ProtegidoPorBiometria>
+      <DadosDoPerfil />
+    </ProtegidoPorBiometria>
+  );
+}
+
+function DadosDoPerfil() {
   const [email, setEmail] = useState('');
 
   useEffect(() => {
