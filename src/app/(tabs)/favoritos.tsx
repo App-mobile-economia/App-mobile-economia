@@ -4,11 +4,21 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ProtegidoPorBiometria from '@/components/protegido-por-biometria';
 import { cores, LARGURA_MAXIMA } from '@/constants/cores';
 import { INDICADORES } from '@/constants/indicadores';
 import { atualizarNota, Favorito, listarFavoritos, removerFavorito } from '@/services/favoritos';
 
+// A aba só abre depois da digital ou do rosto.
 export default function Favoritos() {
+  return (
+    <ProtegidoPorBiometria>
+      <ListaFavoritos />
+    </ProtegidoPorBiometria>
+  );
+}
+
+function ListaFavoritos() {
   const [favoritos, setFavoritos] = useState<Favorito[]>([]);
   const [erro, setErro] = useState('');
 

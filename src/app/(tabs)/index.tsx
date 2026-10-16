@@ -1,5 +1,6 @@
+import { useNetworkState } from 'expo-network';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,6 +11,7 @@ import { cores, LARGURA_DESKTOP, LARGURA_MAXIMA } from '@/constants/cores';
 import { INDICADORES } from '@/constants/indicadores';
 import { buscarTudo, Indicador } from '@/services/api';
 import { lerCache, salvarCache } from '@/services/cache';
+import { useSacudir } from '@/hooks/use-sacudir';
 import { adicionarFavorito, Favorito, listarFavoritos, removerFavorito } from '@/services/favoritos';
 
 export default function Painel() {
@@ -46,11 +48,26 @@ export default function Painel() {
     setCarregando(false);
   }
 
-  // Usada ao puxar a tela para atualizar.
+  // Usada ao puxar a tela para atualizar ou ao sacudir o celular.
   async function atualizar() {
     setCarregando(true);
     await carregar();
   }
+
+  // Sacudir o celular também atualiza os indicadores.
+  useSacudir(atualizar);
+
+  // Sensor de rede: avisa quando está offline e atualiza sozinho quando a internet volta.
+  const rede = useNetworkState();
+  const offline = rede.isConnected === false || rede.isInternetReachable === false;
+  const estavaOffline = useRef(false);
+  useEffect(() => {
+    if (estavaOffline.current && !offline) {
+      atualizar();
+    }
+    estavaOffline.current = offline;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offline]);
 
   async function carregarFavoritos() {
     try {
@@ -101,8 +118,14 @@ export default function Painel() {
           <Text style={estilos.titulo}>{NOME_APP}</Text>
           <Text style={estilos.subtitulo}>{hora ? `Atualizado às ${hora}` : 'Sem dados'}</Text>
 
-          {semConexao && (
-            <Text style={estilos.aviso}>Sem conexão com alguma fonte. Mostrando os últimos dados salvos.</Text>
+          {offline ? (
+            <Text style={estilos.aviso}>
+              Você está offline. Mostrando dados do cache{hora ? ` (atualizados às ${hora})` : ''}.
+            </Text>
+          ) : (
+            semConexao && (
+              <Text style={estilos.aviso}>Sem conexão com alguma fonte. Mostrando os últimos dados salvos.</Text>
+            )
           )}
           {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
 
