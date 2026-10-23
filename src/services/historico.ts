@@ -10,7 +10,8 @@ export const PERIODOS: Periodo[] = [
   { chave: '12m', titulo: '12 meses', dias: 365 },
 ];
 
-export type Resumo = { inicio: number; fim: number; minimo: number; maximo: number };
+// Moedas não trazem mínimo e máximo do período (vêm em lote, para respeitar o limite da CoinGecko).
+export type Resumo = { inicio: number; fim: number; minimo?: number; maximo?: number };
 
 // dd/MM/aaaa, o formato que o Banco Central pede nas datas.
 function dataBC(data: Date) {
@@ -31,20 +32,43 @@ async function valoresBC(serie: number, dias: number): Promise<number[]> {
   return Array.isArray(linhas) ? linhas.map((l: { valor: string }) => parseFloat(l.valor)) : [];
 }
 
-async function valoresCripto(id: string, dias: number): Promise<number[]> {
-  const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=brl&days=${dias}`;
+type MoedaMercado = {
+  id: string;
+  current_price: number;
+  price_change_percentage_7d_in_currency?: number | null;
+  price_change_percentage_30d_in_currency?: number | null;
+  price_change_percentage_1y_in_currency?: number | null;
+};
+
+// Variação das moedas no período. Uma chamada só para todas, porque a CoinGecko gratuita
+// bloqueia (erro 429) quando se pede o histórico de cada moeda separadamente.
+export async function buscarResumosCripto(ids: string[], dias: number): Promise<Record<string, Resumo | null>> {
+  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=brl&ids=${ids.join(',')}&price_change_percentage=7d,30d,1y`;
   const resposta = await fetch(url);
   if (!resposta.ok) throw new Error(`CoinGecko: erro ${resposta.status}`);
-  const dados: { prices: [number, number][] } = await resposta.json();
-  return dados.prices.map(([, preco]) => preco);
+  const moedas: MoedaMercado[] = await resposta.json();
+
+  const resumos: Record<string, Resumo | null> = {};
+  for (const moeda of moedas) {
+    const percentual =
+      dias <= 7
+        ? moeda.price_change_percentage_7d_in_currency
+        : dias <= 30
+          ? moeda.price_change_percentage_30d_in_currency
+          : moeda.price_change_percentage_1y_in_currency;
+    // Preço de antes = preço de hoje desfeito da variação.
+    resumos[moeda.id] =
+      typeof percentual === 'number'
+        ? { inicio: moeda.current_price / (1 + percentual / 100), fim: moeda.current_price }
+        : null;
+  }
+  return resumos;
 }
 
-// Devolve null quando o período tem menos de 2 pontos (ex.: IPCA é mensal, então 7 dias não tem dados).
+// Indicadores do Banco Central. Devolve null quando o período tem menos de 2 pontos (ex.: IPCA é mensal, então 7 dias não tem dados).
 export async function buscarResumo(meta: Meta, dias: number): Promise<Resumo | null> {
-  let valores: number[] = [];
-  if (meta.serie !== undefined) valores = await valoresBC(meta.serie, dias);
-  else if (meta.idCripto) valores = await valoresCripto(meta.idCripto, dias);
-
+  if (meta.serie === undefined) return null;
+  const valores = await valoresBC(meta.serie, dias);
   if (valores.length < 2) return null;
   return {
     inicio: valores[0],
