@@ -2,7 +2,7 @@ import { useNetworkState } from 'expo-network';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Cartao from '@/components/cartao';
@@ -16,6 +16,8 @@ import { lerCache, salvarCache } from '@/services/cache';
 import { useSacudir } from '@/hooks/use-sacudir';
 import { adicionarFavorito, Favorito, listarFavoritos, removerFavorito } from '@/services/favoritos';
 
+const FILTROS = ['Todos', 'Economia', 'Criptomoedas'] as const;
+
 export default function Painel() {
   const { width } = useWindowDimensions();
   const desktop = width >= LARGURA_DESKTOP;
@@ -27,6 +29,7 @@ export default function Painel() {
   const [hora, setHora] = useState<string | null>(null);
   const [erro, setErro] = useState('');
   const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>('Todos');
   const [achadas, setAchadas] = useState<Indicador[]>([]); // moedas achadas na busca
 
   // Busca os dados (a tela já começa com carregando = true).
@@ -133,14 +136,46 @@ export default function Painel() {
   const visiveis = buscando
     ? lista.filter((i) => normalizar(`${i.titulo} ${i.palavras ?? ''} ${i.grupo}`).includes(texto))
     : lista;
+  // Durante a busca o filtro de grupo é ignorado, para não esconder o resultado.
+  const grupoAtivo = buscando ? 'Todos' : filtro;
   // Moedas da busca que ainda não estão no painel.
   const outrasMoedas = buscando ? achadas.filter((a) => !lista.some((i) => i.idCripto === a.idCripto)) : [];
 
-  // Quantos cartões cabem por linha: no desktop são mais colunas.
-  const largura = (grupo: string) => (grupo === 'Economia' ? (desktop ? '24%' : '48.5%') : desktop ? '49%' : '100%');
+  // Quantos cartões cabem por linha: no celular são 2 por linha; no desktop, mais colunas.
+  const largura = (grupo: string) => (grupo === 'Economia' ? (desktop ? '24%' : '48.5%') : desktop ? '49%' : '48.5%');
+  // Resultados da busca têm texto longo (ranking, mín/máx): no celular ocupam a linha toda.
+  const larguraBusca = desktop ? '49%' : '100%';
 
   return (
     <SafeAreaView style={estilos.tela} edges={['top']}>
+      {/* Busca e filtros ficam fixos no topo, fora da rolagem. */}
+      <View style={[estilos.centro, estilos.fixo]}>
+        <View style={estilos.busca}>
+          <Ionicons name="search" size={18} color={cores.textoSecundario} />
+          <TextInput
+            style={estilos.campoBusca}
+            value={busca}
+            onChangeText={setBusca}
+            placeholder="Buscar indicador ou moeda"
+            placeholderTextColor={cores.textoSecundario}
+            autoCapitalize="none"
+            autoCorrect={false}
+            accessibilityLabel="Buscar indicador ou moeda"
+          />
+        </View>
+        <View style={estilos.filtros}>
+          {FILTROS.map((f) => (
+            <Pressable
+              key={f}
+              onPress={() => setFiltro(f)}
+              style={[estilos.chip, filtro === f && estilos.chipAtivo]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: filtro === f }}>
+              <Text style={[estilos.chipTexto, filtro === f && estilos.chipTextoAtivo]}>{f}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
       <ScrollView
         contentContainerStyle={estilos.conteudo}
         refreshControl={
@@ -161,25 +196,12 @@ export default function Painel() {
           )}
           {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
 
-          <View style={estilos.busca}>
-            <Ionicons name="search" size={18} color={cores.textoSecundario} />
-            <TextInput
-              style={estilos.campoBusca}
-              value={busca}
-              onChangeText={setBusca}
-              placeholder="Buscar indicador ou moeda (ex.: inflação, solana)"
-              placeholderTextColor={cores.textoSecundario}
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessibilityLabel="Buscar indicador ou moeda"
-            />
-          </View>
-
           {buscando && visiveis.length === 0 && outrasMoedas.length === 0 && (
             <Text style={estilos.vazio}>Nada encontrado para &quot;{busca.trim()}&quot;.</Text>
           )}
 
           {(['Economia', 'Criptomoedas'] as const).map((grupo) => {
+            if (grupoAtivo !== 'Todos' && grupoAtivo !== grupo) return null;
             const doGrupo = visiveis.filter((i) => i.grupo === grupo);
             if (doGrupo.length === 0) return null;
             return (
@@ -194,6 +216,7 @@ export default function Painel() {
                       onFavoritar={() => alternarFavorito(indicador.chave)}
                       atraso={posicao * 80}
                       largura={largura(grupo)}
+                      compacto={!desktop}
                     />
                   ))}
                 </View>
@@ -212,7 +235,7 @@ export default function Painel() {
                     favorito={favoritos.some((f) => f.indicador === indicador.chave)}
                     onFavoritar={() => alternarFavorito(indicador.chave)}
                     atraso={posicao * 80}
-                    largura={largura('Criptomoedas')}
+                    largura={larguraBusca}
                   />
                 ))}
               </View>
@@ -228,10 +251,16 @@ const estilos = StyleSheet.create({
   tela: { flex: 1, backgroundColor: cores.fundo },
   conteudo: { alignItems: 'center', paddingBottom: 40 },
   centro: { width: '100%', maxWidth: LARGURA_MAXIMA, paddingHorizontal: 20, paddingTop: 12 },
-  titulo: { fontSize: 32, fontWeight: '800', color: cores.textoPrincipal },
+  titulo: { fontSize: 28, fontWeight: '800', color: cores.textoPrincipal },
   subtitulo: { fontSize: 13, color: cores.textoSecundario, marginTop: 4 },
   secao: { fontSize: 16, fontWeight: '700', color: cores.destaque, marginTop: 28, marginBottom: 12 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+  fixo: { alignSelf: 'center', paddingBottom: 4, gap: 10 },
+  filtros: { flexDirection: 'row', gap: 8 },
+  chip: { borderColor: cores.borda, borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 },
+  chipAtivo: { backgroundColor: cores.destaque, borderColor: cores.destaque },
+  chipTexto: { color: cores.textoSecundario, fontSize: 13, fontWeight: '600' },
+  chipTextoAtivo: { color: cores.fundo },
   busca: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -241,7 +270,7 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 12,
-    marginTop: 16,
+    marginTop: 8,
   },
   campoBusca: { flex: 1, color: cores.textoPrincipal, paddingVertical: 12 },
   vazio: { color: cores.textoSecundario, marginTop: 24 },
