@@ -1,13 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ProtegidoPorBiometria from '@/components/protegido-por-biometria';
 import { cores, LARGURA_MAXIMA } from '@/constants/cores';
-import { INDICADORES } from '@/constants/indicadores';
+import { metaDaChave } from '@/constants/indicadores';
 import { atualizarNota, Favorito, listarFavoritos, removerFavorito } from '@/services/favoritos';
+import { buscarResumo, formatarValor, formatarVariacao, PERIODOS, Resumo } from '@/services/historico';
+
+const GRUPOS = ['Todos', 'Economia', 'Criptomoedas'] as const;
+type Historico = Record<string, Resumo | null | 'erro'>;
 
 // A aba só abre depois da digital ou do rosto.
 export default function Favoritos() {
@@ -21,6 +25,10 @@ export default function Favoritos() {
 function ListaFavoritos() {
   const [favoritos, setFavoritos] = useState<Favorito[]>([]);
   const [erro, setErro] = useState('');
+  const [periodo, setPeriodo] = useState('30d');
+  const [grupo, setGrupo] = useState<(typeof GRUPOS)[number]>('Todos');
+  // Guarda de qual período são os dados, para mostrar "carregando" ao trocar de período.
+  const [historico, setHistorico] = useState<{ periodo: string; dados: Historico } | null>(null);
 
   async function carregar() {
     try {
@@ -37,6 +45,28 @@ function ListaFavoritos() {
       carregar();
     }, []),
   );
+
+  // Busca o histórico dos favoritos quando a lista ou o período mudam.
+  const chaves = favoritos.map((f) => f.indicador).join(',');
+  useEffect(() => {
+    if (!chaves) return;
+    let ativo = true;
+    const dias = PERIODOS.find((p) => p.chave === periodo)?.dias ?? 30;
+    Promise.all(
+      chaves.split(',').map(async (chave) => {
+        try {
+          return [chave, await buscarResumo(metaDaChave(chave), dias)] as const;
+        } catch {
+          return [chave, 'erro'] as const;
+        }
+      }),
+    ).then((pares) => {
+      if (ativo) setHistorico({ periodo, dados: Object.fromEntries(pares) });
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [chaves, periodo]);
 
   async function salvarNota(id: number, nota: string) {
     try {
@@ -64,31 +94,71 @@ function ListaFavoritos() {
 
           {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
 
+          <View style={estilos.filtros}>
+            {PERIODOS.map((p) => (
+              <Pressable
+                key={p.chave}
+                onPress={() => setPeriodo(p.chave)}
+                style={[estilos.chip, periodo === p.chave && estilos.chipAtivo]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: periodo === p.chave }}>
+                <Text style={[estilos.chipTexto, periodo === p.chave && estilos.chipTextoAtivo]}>{p.titulo}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={estilos.filtros}>
+            {GRUPOS.map((g) => (
+              <Pressable
+                key={g}
+                onPress={() => setGrupo(g)}
+                style={[estilos.chip, grupo === g && estilos.chipAtivo]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: grupo === g }}>
+                <Text style={[estilos.chipTexto, grupo === g && estilos.chipTextoAtivo]}>{g}</Text>
+              </Pressable>
+            ))}
+          </View>
+
           {favoritos.length === 0 && !erro && (
             <Text style={estilos.vazio}>Nenhum favorito ainda. Toque na estrela de um cartão no Painel.</Text>
           )}
 
-          {favoritos.map((favorito) => {
-            const meta = INDICADORES.find((i) => i.chave === favorito.indicador);
+          {favoritos
+            .filter((f) => grupo === 'Todos' || metaDaChave(f.indicador).grupo === grupo)
+            .map((favorito) => {
+            const meta = metaDaChave(favorito.indicador);
+            const resumo = historico?.periodo === periodo ? historico.dados[favorito.indicador] : undefined;
             return (
               <View key={favorito.id} style={estilos.item}>
                 <View style={estilos.linha}>
-                  <Ionicons name={meta?.icone ?? 'star'} size={20} color={cores.destaque} />
-                  <Text style={estilos.nome}>{meta?.titulo ?? favorito.indicador}</Text>
+                  <Ionicons name={meta.icone} size={20} color={cores.destaque} />
+                  <Text style={estilos.nome}>{meta.titulo}</Text>
                   <Pressable
                     onPress={() => apagar(favorito.id)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Remover ${meta?.titulo ?? 'favorito'}`}>
+                    accessibilityLabel={`Remover ${meta.titulo}`}>
                     <Ionicons name="trash" size={20} color={cores.negativo} />
                   </Pressable>
                 </View>
+                <Text style={estilos.historico}>
+                  {resumo === undefined && 'Carregando histórico...'}
+                  {resumo === 'erro' && 'Não foi possível carregar o histórico.'}
+                  {resumo === null && 'Sem dados neste período (este indicador é atualizado com pouca frequência).'}
+                  {resumo && resumo !== 'erro' && (
+                    <>
+                      Variação {formatarVariacao(meta, resumo)} · De {formatarValor(meta, resumo.inicio)} para{' '}
+                      {formatarValor(meta, resumo.fim)} · Mín {formatarValor(meta, resumo.minimo)} · Máx{' '}
+                      {formatarValor(meta, resumo.maximo)}
+                    </>
+                  )}
+                </Text>
                 <TextInput
                   style={estilos.campo}
                   defaultValue={favorito.nota}
                   placeholder="Escreva uma nota..."
                   placeholderTextColor={cores.textoSecundario}
                   onEndEditing={(e) => salvarNota(favorito.id, e.nativeEvent.text)}
-                  accessibilityLabel={`Nota sobre ${meta?.titulo ?? 'favorito'}`}
+                  accessibilityLabel={`Nota sobre ${meta.titulo}`}
                 />
               </View>
             );
@@ -110,6 +180,12 @@ const estilos = StyleSheet.create({
   item: { backgroundColor: cores.card, borderColor: cores.borda, borderWidth: 1, borderRadius: 16, padding: 16, gap: 10 },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   nome: { flex: 1, color: cores.textoPrincipal, fontSize: 16, fontWeight: '600' },
+  filtros: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { borderColor: cores.borda, borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 },
+  chipAtivo: { backgroundColor: cores.destaque, borderColor: cores.destaque },
+  chipTexto: { color: cores.textoSecundario, fontSize: 13, fontWeight: '600' },
+  chipTextoAtivo: { color: cores.fundo },
+  historico: { color: cores.textoSecundario, fontSize: 12 },
   campo: {
     backgroundColor: cores.fundo,
     borderColor: cores.borda,
