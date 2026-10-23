@@ -149,20 +149,48 @@ function ListaFavoritos() {
                     <Ionicons name="trash" size={20} color={cores.negativo} />
                   </Pressable>
                 </View>
-                <Text style={estilos.historico}>
-                  {resumo === undefined && 'Carregando histórico...'}
-                  {resumo === 'erro' && 'Não foi possível carregar o histórico.'}
-                  {resumo === null && 'Sem dados neste período (este indicador é atualizado com pouca frequência).'}
+                <View style={estilos.historico}>
+                  {resumo === undefined && <Text style={estilos.historicoTexto}>Carregando histórico...</Text>}
+                  {resumo === 'erro' && (
+                    <Text style={estilos.historicoTexto}>Não foi possível carregar o histórico.</Text>
+                  )}
+                  {resumo === null && (
+                    <Text style={estilos.historicoTexto}>
+                      Sem dados neste período (este indicador é atualizado com pouca frequência).
+                    </Text>
+                  )}
                   {resumo && resumo !== 'erro' && (
                     <>
-                      Variação {formatarVariacao(meta, resumo)} · De {formatarValor(meta, resumo.inicio)} para{' '}
-                      {formatarValor(meta, resumo.fim)}
-                      {resumo.minimo !== undefined && resumo.maximo !== undefined
-                        ? ` · Mín ${formatarValor(meta, resumo.minimo)} · Máx ${formatarValor(meta, resumo.maximo)}`
-                        : ''}
+                      <View
+                        style={[
+                          estilos.etiqueta,
+                          { backgroundColor: resumo.fim >= resumo.inicio ? cores.positivoFundo : cores.negativoFundo },
+                        ]}>
+                        <Ionicons
+                          name={resumo.fim >= resumo.inicio ? 'trending-up' : 'trending-down'}
+                          size={14}
+                          color={resumo.fim >= resumo.inicio ? cores.positivo : cores.negativo}
+                        />
+                        <Text
+                          style={{
+                            color: resumo.fim >= resumo.inicio ? cores.positivo : cores.negativo,
+                            fontWeight: '600',
+                            fontSize: 13,
+                          }}>
+                          {formatarVariacao(meta, resumo)}
+                        </Text>
+                      </View>
+                      <Text style={estilos.historicoTexto}>
+                        De {formatarValor(meta, resumo.inicio)} para {formatarValor(meta, resumo.fim)}
+                      </Text>
+                      {resumo.minimo !== undefined && resumo.maximo !== undefined && (
+                        <Text style={estilos.historicoTexto}>
+                          Mín {formatarValor(meta, resumo.minimo)} · Máx {formatarValor(meta, resumo.maximo)}
+                        </Text>
+                      )}
                     </>
                   )}
-                </Text>
+                </View>
                 <TextInput
                   style={estilos.campo}
                   defaultValue={favorito.nota}
@@ -196,7 +224,17 @@ const estilos = StyleSheet.create({
   chipAtivo: { backgroundColor: cores.destaque, borderColor: cores.destaque },
   chipTexto: { color: cores.textoSecundario, fontSize: 13, fontWeight: '600' },
   chipTextoAtivo: { color: cores.fundo },
-  historico: { color: cores.textoSecundario, fontSize: 12 },
+  historico: { gap: 6 },
+  historicoTexto: { color: cores.textoSecundario, fontSize: 13 },
+  etiqueta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
   campo: {
     backgroundColor: cores.fundo,
     borderColor: cores.borda,
