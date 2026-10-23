@@ -8,7 +8,7 @@ import ProtegidoPorBiometria from '@/components/protegido-por-biometria';
 import { cores, LARGURA_MAXIMA } from '@/constants/cores';
 import { metaDaChave } from '@/constants/indicadores';
 import { atualizarNota, Favorito, listarFavoritos, removerFavorito } from '@/services/favoritos';
-import { buscarResumo, formatarValor, formatarVariacao, PERIODOS, Resumo } from '@/services/historico';
+import { buscarResumo, buscarResumosCripto, formatarValor, formatarVariacao, PERIODOS, Resumo } from '@/services/historico';
 
 const GRUPOS = ['Todos', 'Economia', 'Criptomoedas'] as const;
 type Historico = Record<string, Resumo | null | 'erro'>;
@@ -52,12 +52,21 @@ function ListaFavoritos() {
     if (!chaves) return;
     let ativo = true;
     const dias = PERIODOS.find((p) => p.chave === periodo)?.dias ?? 30;
+    const metas = chaves.split(',').map(metaDaChave);
+    // Moedas: uma chamada só para todas (a CoinGecko limita as chamadas).
+    const ids = metas.flatMap((m) => (m.idCripto ? [m.idCripto] : []));
+    const moedas = ids.length > 0 ? buscarResumosCripto(ids, dias).catch(() => null) : null;
+
     Promise.all(
-      chaves.split(',').map(async (chave) => {
+      metas.map(async (meta) => {
         try {
-          return [chave, await buscarResumo(metaDaChave(chave), dias)] as const;
+          if (meta.idCripto) {
+            const resumos = await moedas;
+            return [meta.chave, resumos ? (resumos[meta.idCripto] ?? null) : 'erro'] as const;
+          }
+          return [meta.chave, await buscarResumo(meta, dias)] as const;
         } catch {
-          return [chave, 'erro'] as const;
+          return [meta.chave, 'erro'] as const;
         }
       }),
     ).then((pares) => {
@@ -147,8 +156,10 @@ function ListaFavoritos() {
                   {resumo && resumo !== 'erro' && (
                     <>
                       Variação {formatarVariacao(meta, resumo)} · De {formatarValor(meta, resumo.inicio)} para{' '}
-                      {formatarValor(meta, resumo.fim)} · Mín {formatarValor(meta, resumo.minimo)} · Máx{' '}
-                      {formatarValor(meta, resumo.maximo)}
+                      {formatarValor(meta, resumo.fim)}
+                      {resumo.minimo !== undefined && resumo.maximo !== undefined
+                        ? ` · Mín ${formatarValor(meta, resumo.minimo)} · Máx ${formatarValor(meta, resumo.maximo)}`
+                        : ''}
                     </>
                   )}
                 </Text>
