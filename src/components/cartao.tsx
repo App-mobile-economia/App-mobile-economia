@@ -12,9 +12,10 @@ type Props = {
   onFavoritar: () => void;
   atraso: number; // espera (ms) antes da animação, para os cartões entrarem em sequência
   largura: `${number}%`;
+  compacto?: boolean; // celular com 2 cartões por linha: título em linha própria e valor menor
 };
 
-export default function Cartao({ indicador, favorito, onFavoritar, atraso, largura }: Props) {
+export default function Cartao({ indicador, favorito, onFavoritar, atraso, largura, compacto = false }: Props) {
   // Animação de entrada: o cartão aparece (opacidade) e sobe um pouco.
   const [entrada] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -38,9 +39,13 @@ export default function Cartao({ indicador, favorito, onFavoritar, atraso, largu
         <View style={estilos.icone}>
           <Ionicons name={icone} size={20} color={cores.destaque} />
         </View>
-        <Text style={estilos.titulo} numberOfLines={1}>
-          {titulo}
-        </Text>
+        {compacto ? (
+          <View style={{ flex: 1 }} />
+        ) : (
+          <Text style={estilos.titulo} numberOfLines={1}>
+            {titulo}
+          </Text>
+        )}
         <Pressable
           onPress={onFavoritar}
           accessibilityRole="button"
@@ -49,7 +54,19 @@ export default function Cartao({ indicador, favorito, onFavoritar, atraso, largu
         </Pressable>
       </View>
 
-      <Text style={estilos.valor}>{valor}</Text>
+      {compacto && (
+        <Text style={[estilos.titulo, { marginTop: 10 }]} numberOfLines={2}>
+          {titulo}
+        </Text>
+      )}
+
+      <Text
+        style={[estilos.valor, compacto && estilos.valorCompacto]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}>
+        {valor}
+      </Text>
 
       {typeof variacao === 'number' && (
         <View style={[estilos.etiqueta, { backgroundColor: subiu ? cores.positivoFundo : cores.negativoFundo }]}>
@@ -75,7 +92,7 @@ const estilos = StyleSheet.create({
     borderColor: cores.borda,
     borderWidth: 1,
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
   },
   topo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   icone: {
@@ -88,6 +105,7 @@ const estilos = StyleSheet.create({
   },
   titulo: { flex: 1, fontSize: 13, color: cores.textoSecundario },
   valor: { fontSize: 26, fontWeight: '700', color: cores.textoPrincipal, marginTop: 12 },
+  valorCompacto: { fontSize: 20, marginTop: 6 },
   detalhe: { fontSize: 12, color: cores.textoSecundario, marginTop: 8 },
   etiqueta: {
     flexDirection: 'row',
