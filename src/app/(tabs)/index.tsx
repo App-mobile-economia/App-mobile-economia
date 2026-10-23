@@ -1,7 +1,8 @@
 import { useNetworkState } from 'expo-network';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Cartao from '@/components/cartao';
@@ -10,6 +11,7 @@ import { NOME_APP } from '@/constants/app';
 import { cores, LARGURA_DESKTOP, LARGURA_MAXIMA } from '@/constants/cores';
 import { INDICADORES } from '@/constants/indicadores';
 import { buscarTudo, Indicador } from '@/services/api';
+import { buscarMoedas, indicadoresDeMoedas, normalizar } from '@/services/busca';
 import { lerCache, salvarCache } from '@/services/cache';
 import { useSacudir } from '@/hooks/use-sacudir';
 import { adicionarFavorito, Favorito, listarFavoritos, removerFavorito } from '@/services/favoritos';
@@ -24,6 +26,8 @@ export default function Painel() {
   const [semConexao, setSemConexao] = useState(false);
   const [hora, setHora] = useState<string | null>(null);
   const [erro, setErro] = useState('');
+  const [busca, setBusca] = useState('');
+  const [achadas, setAchadas] = useState<Indicador[]>([]); // moedas achadas na busca
 
   // Busca os dados (a tela já começa com carregando = true).
   async function carregar() {
@@ -90,6 +94,25 @@ export default function Painel() {
     }, []),
   );
 
+  // Busca moedas pelo nome, esperando a pessoa parar de digitar (a CoinGecko limita as chamadas).
+  useEffect(() => {
+    const texto = busca.trim();
+    if (texto.length < 2) return;
+    let ativo = true;
+    const espera = setTimeout(async () => {
+      try {
+        const itens = await indicadoresDeMoedas(await buscarMoedas(texto));
+        if (ativo) setAchadas(itens);
+      } catch {
+        if (ativo) setAchadas([]);
+      }
+    }, 500);
+    return () => {
+      ativo = false;
+      clearTimeout(espera);
+    };
+  }, [busca]);
+
   async function alternarFavorito(chave: string) {
     setErro('');
     try {
@@ -103,6 +126,15 @@ export default function Painel() {
   }
 
   if (carregando && lista.length === 0) return <TelaCarregando />;
+
+  // Com 2+ letras digitadas, mostra só o que combina (título, palavras-chave ou grupo).
+  const texto = normalizar(busca);
+  const buscando = texto.length >= 2;
+  const visiveis = buscando
+    ? lista.filter((i) => normalizar(`${i.titulo} ${i.palavras ?? ''} ${i.grupo}`).includes(texto))
+    : lista;
+  // Moedas da busca que ainda não estão no painel.
+  const outrasMoedas = buscando ? achadas.filter((a) => !lista.some((i) => i.idCripto === a.idCripto)) : [];
 
   // Quantos cartões cabem por linha: no desktop são mais colunas.
   const largura = (grupo: string) => (grupo === 'Economia' ? (desktop ? '24%' : '48.5%') : desktop ? '49%' : '100%');
@@ -129,13 +161,32 @@ export default function Painel() {
           )}
           {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
 
-          {(['Economia', 'Criptomoedas'] as const).map((grupo) => (
-            <View key={grupo}>
-              <Text style={estilos.secao}>{grupo}</Text>
-              <View style={estilos.grade}>
-                {lista
-                  .filter((i) => i.grupo === grupo)
-                  .map((indicador, posicao) => (
+          <View style={estilos.busca}>
+            <Ionicons name="search" size={18} color={cores.textoSecundario} />
+            <TextInput
+              style={estilos.campoBusca}
+              value={busca}
+              onChangeText={setBusca}
+              placeholder="Buscar indicador ou moeda (ex.: inflação, solana)"
+              placeholderTextColor={cores.textoSecundario}
+              autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel="Buscar indicador ou moeda"
+            />
+          </View>
+
+          {buscando && visiveis.length === 0 && outrasMoedas.length === 0 && (
+            <Text style={estilos.vazio}>Nada encontrado para &quot;{busca.trim()}&quot;.</Text>
+          )}
+
+          {(['Economia', 'Criptomoedas'] as const).map((grupo) => {
+            const doGrupo = visiveis.filter((i) => i.grupo === grupo);
+            if (doGrupo.length === 0) return null;
+            return (
+              <View key={grupo}>
+                <Text style={estilos.secao}>{grupo}</Text>
+                <View style={estilos.grade}>
+                  {doGrupo.map((indicador, posicao) => (
                     <Cartao
                       key={indicador.chave}
                       indicador={indicador}
@@ -145,9 +196,28 @@ export default function Painel() {
                       largura={largura(grupo)}
                     />
                   ))}
+                </View>
+              </View>
+            );
+          })}
+
+          {outrasMoedas.length > 0 && (
+            <View>
+              <Text style={estilos.secao}>Outras criptomoedas</Text>
+              <View style={estilos.grade}>
+                {outrasMoedas.map((indicador, posicao) => (
+                  <Cartao
+                    key={indicador.chave}
+                    indicador={indicador}
+                    favorito={favoritos.some((f) => f.indicador === indicador.chave)}
+                    onFavoritar={() => alternarFavorito(indicador.chave)}
+                    atraso={posicao * 80}
+                    largura={largura('Criptomoedas')}
+                  />
+                ))}
               </View>
             </View>
-          ))}
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -162,6 +232,19 @@ const estilos = StyleSheet.create({
   subtitulo: { fontSize: 13, color: cores.textoSecundario, marginTop: 4 },
   secao: { fontSize: 16, fontWeight: '700', color: cores.destaque, marginTop: 28, marginBottom: 12 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+  busca: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: cores.card,
+    borderColor: cores.borda,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginTop: 16,
+  },
+  campoBusca: { flex: 1, color: cores.textoPrincipal, paddingVertical: 12 },
+  vazio: { color: cores.textoSecundario, marginTop: 24 },
   aviso: { color: cores.destaque, backgroundColor: cores.destaqueFundo, padding: 12, borderRadius: 12, marginTop: 16 },
   erro: { color: cores.negativo, backgroundColor: cores.negativoFundo, padding: 12, borderRadius: 12, marginTop: 16 },
 });
