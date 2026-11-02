@@ -4,14 +4,26 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { cores } from '@/constants/cores';
 
-type Props = { subiu: boolean; texto: string };
+type Props = {
+  subiu: boolean; // true = verde com seta para cima; false = vermelha com seta para baixo
+  texto: string;
+};
 
 export default function EtiquetaVariacao({ subiu, texto }: Props) {
-  const cor = subiu ? cores.positivo : cores.negativo;
+  // Escolhe as cores e a seta conforme o valor subiu ou caiu.
+  let corDoTexto: string = cores.negativo;
+  let corDeFundo: string = cores.negativoFundo;
+  let nomeDaSeta: 'trending-up' | 'trending-down' = 'trending-down';
+  if (subiu) {
+    corDoTexto = cores.positivo;
+    corDeFundo = cores.positivoFundo;
+    nomeDaSeta = 'trending-up';
+  }
+
   return (
-    <View style={[estilos.etiqueta, { backgroundColor: subiu ? cores.positivoFundo : cores.negativoFundo }]}>
-      <Ionicons name={subiu ? 'trending-up' : 'trending-down'} size={14} color={cor} />
-      <Text style={{ color: cor, fontWeight: '600', fontSize: 13 }}>{texto}</Text>
+    <View style={[estilos.etiqueta, { backgroundColor: corDeFundo }]}>
+      <Ionicons name={nomeDaSeta} size={14} color={corDoTexto} />
+      <Text style={{ color: corDoTexto, fontWeight: '600', fontSize: 13 }}>{texto}</Text>
     </View>
   );
 }

@@ -1,6 +1,7 @@
+// Cartão de um indicador: ícone, título, valor, variação e estrela de favorito.
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, DimensionValue, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import EtiquetaVariacao from '@/components/etiqueta-variacao';
 import { cores } from '@/constants/cores';
@@ -9,57 +10,62 @@ import { formatarPercentual } from '@/utils/formatadores';
 
 type Props = {
   indicador: Indicador;
-  favorito: boolean;
-  onFavoritar: () => void;
-  atraso: number; // espera (ms) antes da animação, para os cartões entrarem em sequência
-  largura: `${number}%`;
+  favorito: boolean; // true = a estrela aparece preenchida
+  onFavoritar: () => void; // função chamada ao tocar na estrela
+  atraso: number; // espera (em ms) antes da animação, para os cartões entrarem um depois do outro
+  largura: DimensionValue; // ex.: '48.5%'
   compacto?: boolean; // celular com 2 cartões por linha: título em linha própria e valor menor
 };
 
 export default function Cartao({ indicador, favorito, onFavoritar, atraso, largura, compacto = false }: Props) {
-  // Animação de entrada: o cartão aparece (opacidade) e sobe um pouco.
-  const [entrada] = useState(() => new Animated.Value(0));
+  // Animação de entrada: o cartão aparece aos poucos e sobe um pouco.
+  // "entrada" vai de 0 (começo) até 1 (fim da animação).
+  const [entrada] = useState(new Animated.Value(0));
+
   useEffect(() => {
     Animated.timing(entrada, { toValue: 1, duration: 500, delay: atraso, useNativeDriver: true }).start();
   }, [entrada, atraso]);
 
+  // Enquanto "entrada" vai de 0 a 1, o cartão sobe de 24 pixels abaixo até a posição final.
+  const subida = entrada.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
+
   const { titulo, icone, valor, detalhe, variacao } = indicador;
+  const temVariacao = typeof variacao === 'number';
   const subiu = (variacao ?? 0) >= 0;
 
+  // Texto lido por leitores de tela no botão da estrela.
+  let textoDaEstrela = 'Favoritar ' + titulo;
+  if (favorito) {
+    textoDaEstrela = 'Remover ' + titulo + ' dos favoritos';
+  }
+
   return (
-    <Animated.View
-      style={[
-        estilos.card,
-        {
-          width: largura,
-          opacity: entrada,
-          transform: [{ translateY: entrada.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
-        },
-      ]}>
+    <Animated.View style={[estilos.card, { width: largura, opacity: entrada, transform: [{ translateY: subida }] }]}>
+      {/* Linha de cima: ícone, título (só no modo normal) e estrela */}
       <View style={estilos.topo}>
         <View style={estilos.icone}>
           <Ionicons name={icone} size={20} color={cores.destaque} />
         </View>
+
         {compacto ? (
-          <View style={{ flex: 1 }} />
+          <View style={estilos.espaco} />
         ) : (
           <Text style={estilos.titulo} numberOfLines={1}>
             {titulo}
           </Text>
         )}
-        <Pressable
-          onPress={onFavoritar}
-          accessibilityRole="button"
-          accessibilityLabel={favorito ? `Remover ${titulo} dos favoritos` : `Favoritar ${titulo}`}>
+
+        <Pressable onPress={onFavoritar} accessibilityRole="button" accessibilityLabel={textoDaEstrela}>
           <Ionicons name={favorito ? 'star' : 'star-outline'} size={22} color={cores.destaque} />
         </Pressable>
       </View>
 
-      {compacto && (
-        <Text style={[estilos.titulo, { marginTop: 10 }]} numberOfLines={2}>
+      {/* No modo compacto o título fica numa linha própria, abaixo do ícone */}
+      {compacto ? (
+        <Text style={estilos.tituloCompacto} numberOfLines={2}>
           {titulo}
         </Text>
-      )}
+      ) : null}
 
       <Text
         style={[estilos.valor, compacto && estilos.valorCompacto]}
@@ -69,11 +75,12 @@ export default function Cartao({ indicador, favorito, onFavoritar, atraso, largu
         {valor}
       </Text>
 
-      {typeof variacao === 'number' && (
+      {/* Só as criptomoedas têm variação das últimas 24 horas */}
+      {temVariacao ? (
         <View style={estilos.variacao}>
-          <EtiquetaVariacao subiu={subiu} texto={`${formatarPercentual(Math.abs(variacao))} em 24h`} />
+          <EtiquetaVariacao subiu={subiu} texto={formatarPercentual(Math.abs(variacao)) + ' em 24h'} />
         </View>
-      )}
+      ) : null}
 
       {detalhe ? <Text style={estilos.detalhe}>{detalhe}</Text> : null}
     </Animated.View>
@@ -97,7 +104,9 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  espaco: { flex: 1 },
   titulo: { flex: 1, fontSize: 13, color: cores.textoSecundario },
+  tituloCompacto: { fontSize: 13, color: cores.textoSecundario, marginTop: 10 },
   valor: { fontSize: 26, fontWeight: '700', color: cores.textoPrincipal, marginTop: 12 },
   valorCompacto: { fontSize: 20, marginTop: 6 },
   detalhe: { fontSize: 12, color: cores.textoSecundario, marginTop: 8 },

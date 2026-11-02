@@ -4,38 +4,49 @@ import { Accelerometer } from 'expo-sensors';
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
-const FORCA_MINIMA = 1.8; // em "g": parado fica perto de 1, uma sacudida passa de 1.8
-const INTERVALO_ENTRE_SACUDIDAS = 1500; // evita atualizar várias vezes seguidas
+// Parado, o acelerômetro marca perto de 1 (a gravidade). Uma sacudida passa de 1,8.
+const FORCA_MINIMA = 1.8;
+// Espera (em milissegundos) entre uma sacudida e a próxima, para não atualizar várias vezes seguidas.
+const ESPERA_ENTRE_SACUDIDAS = 1500;
 
 export function useSacudir(aoSacudir: () => void) {
-  // Guarda a função mais recente sem precisar reassinar o sensor a cada render.
-  const funcao = useRef(aoSacudir);
+  // A função recebida muda a cada renderização. Guardamos a mais recente aqui,
+  // assim o sensor é ligado uma vez só e sempre chama a versão atual.
+  const funcaoAtual = useRef(aoSacudir);
   useEffect(() => {
-    funcao.current = aoSacudir;
+    funcaoAtual.current = aoSacudir;
   });
 
   useEffect(() => {
+    // No navegador não usamos o sensor.
     if (Platform.OS === 'web') return;
 
     let assinatura: { remove: () => void } | undefined;
-    let ultima = 0;
-    let ativo = true;
+    let horaDaUltimaSacudida = 0;
+    let tela = true; // vira false quando a tela é fechada
 
-    Accelerometer.isAvailableAsync().then((disponivel) => {
-      if (!disponivel || !ativo) return;
-      Accelerometer.setUpdateInterval(100);
+    async function ligarSensor() {
+      const disponivel = await Accelerometer.isAvailableAsync();
+      if (!disponivel || !tela) return;
+
+      Accelerometer.setUpdateInterval(100); // lê o sensor a cada 100 ms
       assinatura = Accelerometer.addListener(({ x, y, z }) => {
+        // Força total do movimento nos três eixos.
         const forca = Math.sqrt(x * x + y * y + z * z);
         const agora = Date.now();
-        if (forca > FORCA_MINIMA && agora - ultima > INTERVALO_ENTRE_SACUDIDAS) {
-          ultima = agora;
-          funcao.current();
+        const passouOTempo = agora - horaDaUltimaSacudida > ESPERA_ENTRE_SACUDIDAS;
+
+        if (forca > FORCA_MINIMA && passouOTempo) {
+          horaDaUltimaSacudida = agora;
+          funcaoAtual.current();
         }
       });
-    });
+    }
+    ligarSensor();
 
+    // Ao fechar a tela, desliga o sensor.
     return () => {
-      ativo = false;
+      tela = false;
       assinatura?.remove();
     };
   }, []);
