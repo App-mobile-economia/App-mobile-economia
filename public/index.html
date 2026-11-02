@@ -15,18 +15,18 @@
         window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
       }
     </script>
-    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <!-- Estilos básicos recomendados pelo react-native-web: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
-      /* These styles make the body full-height */
+      /* Estes estilos fazem a página ocupar a altura toda */
       html,
       body {
         height: 100%;
       }
-      /* These styles disable body scrolling if you are using <ScrollView> */
+      /* Estes estilos desligam a rolagem da página, porque as telas usam <ScrollView> */
       body {
         overflow: hidden;
       }
-      /* These styles make the root element full-height */
+      /* Estes estilos fazem o elemento raiz do app ocupar a altura toda */
       #root {
         display: flex;
         height: 100%;
@@ -36,11 +36,11 @@
   </head>
 
   <body>
-    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <!-- Mensagem para quem está com o JavaScript desligado (o app precisa dele para funcionar). -->
     <noscript>
       You need to enable JavaScript to run this app.
     </noscript>
-    <!-- The root element for your Expo app. -->
+    <!-- Elemento raiz: é aqui que o app aparece. -->
     <div id="root"></div>
   </body>
 </html>
