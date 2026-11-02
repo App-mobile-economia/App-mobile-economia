@@ -1,8 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 
+// Os dois grupos de indicadores. Nos filtros da tela existe também a opção "Todos".
+export type Grupo = 'Economia' | 'Criptomoedas';
+export type FiltroGrupo = 'Todos' | Grupo;
+export const FILTROS_GRUPO: FiltroGrupo[] = ['Todos', 'Economia', 'Criptomoedas'];
+
 export type Meta = {
   chave: string; // identifica o indicador (também é salvo nos favoritos)
-  grupo: 'Economia' | 'Criptomoedas';
+  grupo: Grupo;
   titulo: string;
   icone: keyof typeof Ionicons.glyphMap;
   // Indicadores do Banco Central: número da série e como mostrar o valor.
@@ -35,16 +40,14 @@ export const INDICADORES: Meta[] = [
   { chave: 'dogecoin', grupo: 'Criptomoedas', titulo: 'Dogecoin (DOGE)', icone: 'paw', idCripto: 'dogecoin' },
 ];
 
-// Acha o indicador de um favorito. Moedas favoritadas pela busca ("cripto:solana") não estão na lista fixa.
+// Acha o indicador de um favorito.
+// Moedas favoritadas pela busca têm chave "cripto:<id>" (ex.: "cripto:solana") e não estão na lista fixa.
 export function metaDaChave(chave: string): Meta {
-  const fixa = INDICADORES.find((i) => i.chave === chave);
-  if (fixa) return fixa;
+  const indicadorFixo = INDICADORES.find((i) => i.chave === chave);
+  if (indicadorFixo) return indicadorFixo;
+
+  // Moeda da busca: monta o indicador a partir do id. O título é o id com a primeira letra maiúscula.
   const id = chave.replace('cripto:', '');
-  return {
-    chave,
-    grupo: 'Criptomoedas',
-    titulo: id.charAt(0).toUpperCase() + id.slice(1),
-    icone: 'cash',
-    idCripto: id,
-  };
+  const titulo = id.charAt(0).toUpperCase() + id.slice(1);
+  return { chave, grupo: 'Criptomoedas', titulo, icone: 'cash', idCripto: id };
 }
