@@ -21,14 +21,24 @@ export default function Perfil() {
 function DadosDoPerfil() {
   const [email, setEmail] = useState('');
 
+  // Ao abrir a aba, busca o e-mail da pessoa que está logada.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? ''));
+    async function buscarEmail() {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setEmail(data.session.user.email ?? '');
+      }
+    }
+    buscarEmail();
   }, []);
 
   // Pede biometria antes de sair da conta.
   async function sair() {
-    if (!(await confirmarBiometria('Confirme para sair'))) return;
-    bloquearAbas();
+    const confirmou = await confirmarBiometria('Confirme para sair');
+    if (!confirmou) {
+      return; // a pessoa cancelou: continua logada
+    }
+    bloquearAbas(); // a próxima pessoa que entrar também passa pela biometria
     await supabase.auth.signOut();
   }
 
