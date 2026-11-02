@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import EtiquetaVariacao from '@/components/etiqueta-variacao';
 import { cores } from '@/constants/cores';
 import { Indicador } from '@/services/api';
 import { formatarPercentual } from '@/utils/formatadores';
@@ -69,15 +70,8 @@ export default function Cartao({ indicador, favorito, onFavoritar, atraso, largu
       </Text>
 
       {typeof variacao === 'number' && (
-        <View style={[estilos.etiqueta, { backgroundColor: subiu ? cores.positivoFundo : cores.negativoFundo }]}>
-          <Ionicons
-            name={subiu ? 'trending-up' : 'trending-down'}
-            size={14}
-            color={subiu ? cores.positivo : cores.negativo}
-          />
-          <Text style={{ color: subiu ? cores.positivo : cores.negativo, fontWeight: '600', fontSize: 13 }}>
-            {formatarPercentual(Math.abs(variacao))} em 24h
-          </Text>
+        <View style={estilos.variacao}>
+          <EtiquetaVariacao subiu={subiu} texto={`${formatarPercentual(Math.abs(variacao))} em 24h`} />
         </View>
       )}
 
@@ -107,14 +101,5 @@ const estilos = StyleSheet.create({
   valor: { fontSize: 26, fontWeight: '700', color: cores.textoPrincipal, marginTop: 12 },
   valorCompacto: { fontSize: 20, marginTop: 6 },
   detalhe: { fontSize: 12, color: cores.textoSecundario, marginTop: 8 },
-  etiqueta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginTop: 8,
-  },
+  variacao: { marginTop: 8 },
 });

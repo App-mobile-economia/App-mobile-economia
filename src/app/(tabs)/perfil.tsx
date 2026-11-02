@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import ProtegidoPorBiometria from '@/components/protegido-por-biometria';
+import ProtegidoPorBiometria, { bloquearAbas } from '@/components/protegido-por-biometria';
 import { NOME_APP } from '@/constants/app';
 import { cores } from '@/constants/cores';
+import { confirmarBiometria } from '@/lib/biometria';
 import { supabase } from '@/lib/supabase';
 
 // A aba só abre depois da digital ou do rosto.
@@ -24,6 +25,13 @@ function DadosDoPerfil() {
     supabase.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? ''));
   }, []);
 
+  // Pede biometria antes de sair da conta.
+  async function sair() {
+    if (!(await confirmarBiometria('Confirme para sair'))) return;
+    bloquearAbas();
+    await supabase.auth.signOut();
+  }
+
   return (
     <SafeAreaView style={estilos.tela} edges={['top']}>
       <View style={estilos.caixa}>
@@ -32,7 +40,7 @@ function DadosDoPerfil() {
         <Text style={estilos.app}>{NOME_APP}</Text>
 
         {/* Ao sair, o _layout percebe e volta para a tela de login */}
-        <Pressable style={estilos.botao} onPress={() => supabase.auth.signOut()} accessibilityRole="button">
+        <Pressable style={estilos.botao} onPress={sair} accessibilityRole="button">
           <Ionicons name="log-out" size={18} color={cores.fundo} />
           <Text style={estilos.textoBotao}>Sair</Text>
         </Pressable>
