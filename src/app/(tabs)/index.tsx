@@ -2,10 +2,11 @@ import { useNetworkState } from 'expo-network';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Cartao from '@/components/cartao';
+import Chip from '@/components/chip';
 import TelaCarregando from '@/components/tela-carregando';
 import { NOME_APP } from '@/constants/app';
 import { cores, LARGURA_DESKTOP, LARGURA_MAXIMA } from '@/constants/cores';
@@ -165,14 +166,7 @@ export default function Painel() {
         </View>
         <View style={estilos.filtros}>
           {FILTROS.map((f) => (
-            <Pressable
-              key={f}
-              onPress={() => setFiltro(f)}
-              style={[estilos.chip, filtro === f && estilos.chipAtivo]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: filtro === f }}>
-              <Text style={[estilos.chipTexto, filtro === f && estilos.chipTextoAtivo]}>{f}</Text>
-            </Pressable>
+            <Chip key={f} texto={f} ativo={filtro === f} onPress={() => setFiltro(f)} />
           ))}
         </View>
       </View>
@@ -257,10 +251,6 @@ const estilos = StyleSheet.create({
   grade: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
   fixo: { alignSelf: 'center', paddingBottom: 4, gap: 10 },
   filtros: { flexDirection: 'row', gap: 8 },
-  chip: { borderColor: cores.borda, borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 },
-  chipAtivo: { backgroundColor: cores.destaque, borderColor: cores.destaque },
-  chipTexto: { color: cores.textoSecundario, fontSize: 13, fontWeight: '600' },
-  chipTextoAtivo: { color: cores.fundo },
   busca: {
     flexDirection: 'row',
     alignItems: 'center',
