@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import Chip from '@/components/chip';
+import EtiquetaVariacao from '@/components/etiqueta-variacao';
 import ProtegidoPorBiometria from '@/components/protegido-por-biometria';
 import { cores, LARGURA_MAXIMA } from '@/constants/cores';
 import { metaDaChave } from '@/constants/indicadores';
@@ -105,26 +107,12 @@ function ListaFavoritos() {
 
           <View style={estilos.filtros}>
             {PERIODOS.map((p) => (
-              <Pressable
-                key={p.chave}
-                onPress={() => setPeriodo(p.chave)}
-                style={[estilos.chip, periodo === p.chave && estilos.chipAtivo]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: periodo === p.chave }}>
-                <Text style={[estilos.chipTexto, periodo === p.chave && estilos.chipTextoAtivo]}>{p.titulo}</Text>
-              </Pressable>
+              <Chip key={p.chave} texto={p.titulo} ativo={periodo === p.chave} onPress={() => setPeriodo(p.chave)} />
             ))}
           </View>
           <View style={estilos.filtros}>
             {GRUPOS.map((g) => (
-              <Pressable
-                key={g}
-                onPress={() => setGrupo(g)}
-                style={[estilos.chip, grupo === g && estilos.chipAtivo]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: grupo === g }}>
-                <Text style={[estilos.chipTexto, grupo === g && estilos.chipTextoAtivo]}>{g}</Text>
-              </Pressable>
+              <Chip key={g} texto={g} ativo={grupo === g} onPress={() => setGrupo(g)} />
             ))}
           </View>
 
@@ -161,25 +149,7 @@ function ListaFavoritos() {
                   )}
                   {resumo && resumo !== 'erro' && (
                     <>
-                      <View
-                        style={[
-                          estilos.etiqueta,
-                          { backgroundColor: resumo.fim >= resumo.inicio ? cores.positivoFundo : cores.negativoFundo },
-                        ]}>
-                        <Ionicons
-                          name={resumo.fim >= resumo.inicio ? 'trending-up' : 'trending-down'}
-                          size={14}
-                          color={resumo.fim >= resumo.inicio ? cores.positivo : cores.negativo}
-                        />
-                        <Text
-                          style={{
-                            color: resumo.fim >= resumo.inicio ? cores.positivo : cores.negativo,
-                            fontWeight: '600',
-                            fontSize: 13,
-                          }}>
-                          {formatarVariacao(meta, resumo)}
-                        </Text>
-                      </View>
+                      <EtiquetaVariacao subiu={resumo.fim >= resumo.inicio} texto={formatarVariacao(meta, resumo)} />
                       <Text style={estilos.historicoTexto}>
                         De {formatarValor(meta, resumo.inicio)} para {formatarValor(meta, resumo.fim)}
                       </Text>
@@ -220,21 +190,8 @@ const estilos = StyleSheet.create({
   linha: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   nome: { flex: 1, color: cores.textoPrincipal, fontSize: 16, fontWeight: '600' },
   filtros: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderColor: cores.borda, borderWidth: 1, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 },
-  chipAtivo: { backgroundColor: cores.destaque, borderColor: cores.destaque },
-  chipTexto: { color: cores.textoSecundario, fontSize: 13, fontWeight: '600' },
-  chipTextoAtivo: { color: cores.fundo },
   historico: { gap: 6 },
   historicoTexto: { color: cores.textoSecundario, fontSize: 13 },
-  etiqueta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
   campo: {
     backgroundColor: cores.fundo,
     borderColor: cores.borda,

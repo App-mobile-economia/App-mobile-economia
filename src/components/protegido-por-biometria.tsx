@@ -1,41 +1,33 @@
 // Só mostra o conteúdo depois de digital ou rosto (ou a senha do aparelho, como reserva do sistema).
 // Se o aparelho não tem biometria, ou está no navegador, o conteúdo é liberado direto.
 import { Ionicons } from '@expo/vector-icons';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TelaCarregando from '@/components/tela-carregando';
 import { cores } from '@/constants/cores';
+import { confirmarBiometria } from '@/lib/biometria';
 
 // Vale para todas as abas protegidas: autenticou uma vez, não pede de novo até o app ir para segundo plano.
 let liberado = false;
+
+// Usada ao sair da conta, para a próxima pessoa que entrar também passar pela biometria.
+export function bloquearAbas() {
+  liberado = false;
+}
 
 type Estado = 'verificando' | 'bloqueado' | 'liberado';
 
 export default function ProtegidoPorBiometria({ children }: { children: ReactNode }) {
   const [estado, setEstado] = useState<Estado>(liberado ? 'liberado' : 'verificando');
 
-  const autenticar = useCallback(async () => {
-    if (Platform.OS === 'web') return true;
-    const temSensor = await LocalAuthentication.hasHardwareAsync();
-    const cadastrada = await LocalAuthentication.isEnrolledAsync();
-    if (!temSensor || !cadastrada) return true;
-
-    const resultado = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Confirme que é você',
-      cancelLabel: 'Cancelar',
-    });
-    return resultado.success;
-  }, []);
-
   const tentar = useCallback(async () => {
     setEstado('verificando');
-    const ok = await autenticar();
+    const ok = await confirmarBiometria('Confirme que é você');
     liberado = ok;
     setEstado(ok ? 'liberado' : 'bloqueado');
-  }, [autenticar]);
+  }, []);
 
   useEffect(() => {
     if (!liberado) {
