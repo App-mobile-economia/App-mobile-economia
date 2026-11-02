@@ -1,7 +1,8 @@
+// Tela principal (Painel): mostra os indicadores, com busca e filtros.
+import { Ionicons } from '@expo/vector-icons';
 import { useNetworkState } from 'expo-network';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
 import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,49 +11,64 @@ import Chip from '@/components/chip';
 import TelaCarregando from '@/components/tela-carregando';
 import { NOME_APP } from '@/constants/app';
 import { cores, LARGURA_DESKTOP, LARGURA_MAXIMA } from '@/constants/cores';
-import { INDICADORES } from '@/constants/indicadores';
+import { FILTROS_GRUPO, FiltroGrupo, Grupo, INDICADORES } from '@/constants/indicadores';
+import { useSacudir } from '@/hooks/use-sacudir';
 import { buscarTudo, Indicador } from '@/services/api';
 import { buscarMoedas, indicadoresDeMoedas, normalizar } from '@/services/busca';
 import { lerCache, salvarCache } from '@/services/cache';
-import { useSacudir } from '@/hooks/use-sacudir';
 import { adicionarFavorito, Favorito, listarFavoritos, removerFavorito } from '@/services/favoritos';
 
-const FILTROS = ['Todos', 'Economia', 'Criptomoedas'] as const;
-
 export default function Painel() {
+  // Largura da tela: define se usamos o layout de celular ou de computador.
   const { width } = useWindowDimensions();
   const desktop = width >= LARGURA_DESKTOP;
 
-  const [lista, setLista] = useState<Indicador[]>([]);
+  // ---------- Dados guardados pela tela ----------
+  const [lista, setLista] = useState<Indicador[]>([]); // indicadores mostrados nos cartões
   const [favoritos, setFavoritos] = useState<Favorito[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [semConexao, setSemConexao] = useState(false);
-  const [hora, setHora] = useState<string | null>(null);
+  const [semConexao, setSemConexao] = useState(false); // true = alguma fonte falhou
+  const [hora, setHora] = useState<string | null>(null); // hora da última atualização
   const [erro, setErro] = useState('');
-  const [busca, setBusca] = useState('');
-  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>('Todos');
-  const [achadas, setAchadas] = useState<Indicador[]>([]); // moedas achadas na busca
+  const [busca, setBusca] = useState(''); // texto digitado na busca
+  const [filtro, setFiltro] = useState<FiltroGrupo>('Todos');
+  const [moedasAchadas, setMoedasAchadas] = useState<Indicador[]>([]); // moedas achadas na busca
 
-  // Busca os dados (a tela já começa com carregando = true).
+  // ---------- Carregar os indicadores ----------
+
+  // Busca os dados na internet. O que não vier fica com o valor que estava salvo no aparelho.
   async function carregar() {
     const novos = await buscarTudo();
     const salvo = await lerCache();
 
-    // O que não veio da internet é completado com o que estava salvo (modo offline).
-    const juntos = [...novos, ...(salvo?.lista ?? [])];
-    const completa = INDICADORES.map((m) => juntos.find((i) => i.chave === m.chave)).filter(
-      (i): i is Indicador => i !== undefined,
-    );
-
-    setSemConexao(novos.length < INDICADORES.length);
-    if (novos.length > 0) {
-      const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      await salvarCache({ hora: agora, lista: completa });
-      setHora(agora);
-    } else {
-      setHora(salvo?.hora ?? null);
+    // Monta a lista completa, na ordem de INDICADORES.
+    const listaCompleta: Indicador[] = [];
+    for (const meta of INDICADORES) {
+      let item = novos.find((i) => i.chave === meta.chave);
+      if (!item && salvo) {
+        item = salvo.lista.find((i) => i.chave === meta.chave);
+      }
+      if (item) {
+        listaCompleta.push(item);
+      }
     }
-    setLista(completa);
+
+    // Se veio menos indicador do que o esperado, alguma fonte está sem conexão.
+    setSemConexao(novos.length < INDICADORES.length);
+
+    if (novos.length > 0) {
+      // Deu certo: guarda os dados novos e a hora.
+      const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      await salvarCache({ hora: agora, lista: listaCompleta });
+      setHora(agora);
+    } else if (salvo) {
+      // Nada veio da internet: usa a hora que estava salva.
+      setHora(salvo.hora);
+    } else {
+      setHora(null);
+    }
+
+    setLista(listaCompleta);
     setCarregando(false);
   }
 
@@ -62,13 +78,24 @@ export default function Painel() {
     await carregar();
   }
 
+  // Carrega os dados quando a tela abre.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    carregar();
+  }, []);
+
   // Sacudir o celular também atualiza os indicadores.
   useSacudir(atualizar);
 
-  // Sensor de rede: avisa quando está offline e atualiza sozinho quando a internet volta.
+  // ---------- Sensor de rede (offline) ----------
+
   const rede = useNetworkState();
   const offline = rede.isConnected === false || rede.isInternetReachable === false;
+
+  // Guarda se a tela estava offline na renderização anterior.
   const estavaOffline = useRef(false);
+
+  // Quando a internet volta (estava offline e agora não está), atualiza sozinho.
   useEffect(() => {
     if (estavaOffline.current && !offline) {
       atualizar();
@@ -77,19 +104,16 @@ export default function Painel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offline]);
 
+  // ---------- Favoritos ----------
+
   async function carregarFavoritos() {
     try {
-      setFavoritos(await listarFavoritos());
+      const dados = await listarFavoritos();
+      setFavoritos(dados);
     } catch {
       setErro('Não foi possível carregar os favoritos.');
     }
   }
-
-  // Carrega os dados quando a tela abre. Os setState de carregar() só rodam depois do await.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    carregar();
-  }, []);
 
   // Recarrega os favoritos toda vez que a aba é aberta.
   useFocusEffect(
@@ -98,54 +122,177 @@ export default function Painel() {
     }, []),
   );
 
-  // Busca moedas pelo nome, esperando a pessoa parar de digitar (a CoinGecko limita as chamadas).
-  useEffect(() => {
-    const texto = busca.trim();
-    if (texto.length < 2) return;
-    let ativo = true;
-    const espera = setTimeout(async () => {
-      try {
-        const itens = await indicadoresDeMoedas(await buscarMoedas(texto));
-        if (ativo) setAchadas(itens);
-      } catch {
-        if (ativo) setAchadas([]);
-      }
-    }, 500);
-    return () => {
-      ativo = false;
-      clearTimeout(espera);
-    };
-  }, [busca]);
-
+  // Toca na estrela: se já é favorito, remove; se não é, adiciona.
   async function alternarFavorito(chave: string) {
     setErro('');
     try {
       const existente = favoritos.find((f) => f.indicador === chave);
-      if (existente) await removerFavorito(existente.id);
-      else await adicionarFavorito(chave);
-      setFavoritos(await listarFavoritos());
+      if (existente) {
+        await removerFavorito(existente.id);
+      } else {
+        await adicionarFavorito(chave);
+      }
+      const dados = await listarFavoritos();
+      setFavoritos(dados);
     } catch {
       setErro('Não foi possível atualizar os favoritos.');
     }
   }
 
-  if (carregando && lista.length === 0) return <TelaCarregando />;
+  // ---------- Busca de moedas pelo nome ----------
 
-  // Com 2+ letras digitadas, mostra só o que combina (título, palavras-chave ou grupo).
-  const texto = normalizar(busca);
-  const buscando = texto.length >= 2;
-  const visiveis = buscando
-    ? lista.filter((i) => normalizar(`${i.titulo} ${i.palavras ?? ''} ${i.grupo}`).includes(texto))
-    : lista;
+  // Espera a pessoa parar de digitar (meio segundo) antes de buscar, porque a CoinGecko limita as chamadas.
+  useEffect(() => {
+    const texto = busca.trim();
+    if (texto.length < 2) {
+      return;
+    }
+
+    let telaAindaAberta = true;
+
+    const temporizador = setTimeout(async () => {
+      try {
+        const moedas = await buscarMoedas(texto);
+        const cartoes = await indicadoresDeMoedas(moedas);
+        if (telaAindaAberta) {
+          setMoedasAchadas(cartoes);
+        }
+      } catch {
+        if (telaAindaAberta) {
+          setMoedasAchadas([]);
+        }
+      }
+    }, 500);
+
+    // Se a pessoa digitar de novo antes de 500 ms, cancela a busca anterior.
+    return () => {
+      telaAindaAberta = false;
+      clearTimeout(temporizador);
+    };
+  }, [busca]);
+
+  // ---------- O que aparece na tela ----------
+
+  const textoDaBusca = normalizar(busca);
+  const buscando = textoDaBusca.length >= 2;
+
+  // Com a busca ligada, mostra só os indicadores que combinam (título, palavras-chave ou grupo).
+  let indicadoresVisiveis = lista;
+  if (buscando) {
+    indicadoresVisiveis = lista.filter((indicador) => {
+      const textoDoIndicador = normalizar(indicador.titulo + ' ' + (indicador.palavras ?? '') + ' ' + indicador.grupo);
+      return textoDoIndicador.includes(textoDaBusca);
+    });
+  }
+
   // Durante a busca o filtro de grupo é ignorado, para não esconder o resultado.
-  const grupoAtivo = buscando ? 'Todos' : filtro;
-  // Moedas da busca que ainda não estão no painel.
-  const outrasMoedas = buscando ? achadas.filter((a) => !lista.some((i) => i.idCripto === a.idCripto)) : [];
+  let filtroAtivo = filtro;
+  if (buscando) {
+    filtroAtivo = 'Todos';
+  }
 
-  // Quantos cartões cabem por linha: no celular são 2 por linha; no desktop, mais colunas.
-  const largura = (grupo: string) => (grupo === 'Economia' ? (desktop ? '24%' : '48.5%') : desktop ? '49%' : '48.5%');
+  // Moedas da busca que ainda não estão no painel.
+  let outrasMoedas: Indicador[] = [];
+  if (buscando) {
+    outrasMoedas = moedasAchadas.filter((moeda) => !lista.some((i) => i.idCripto === moeda.idCripto));
+  }
+
+  // Largura dos cartões: no celular são 2 por linha; no computador, mais colunas.
+  function larguraDoCartao(grupo: Grupo) {
+    if (desktop) {
+      return grupo === 'Economia' ? '24%' : '49%';
+    }
+    return '48.5%';
+  }
+
   // Resultados da busca têm texto longo (ranking, mín/máx): no celular ocupam a linha toda.
-  const larguraBusca = desktop ? '49%' : '100%';
+  const larguraDaBusca = desktop ? '49%' : '100%';
+
+  // Mostra a tela de carregamento só na primeira vez, quando ainda não há nada para mostrar.
+  if (carregando && lista.length === 0) {
+    return <TelaCarregando />;
+  }
+
+  // Monta os cartões de um grupo (Economia ou Criptomoedas).
+  function secaoDoGrupo(grupo: Grupo) {
+    if (filtroAtivo !== 'Todos' && filtroAtivo !== grupo) {
+      return null; // o filtro escondeu este grupo
+    }
+
+    const doGrupo = indicadoresVisiveis.filter((i) => i.grupo === grupo);
+    if (doGrupo.length === 0) {
+      return null; // nada para mostrar neste grupo
+    }
+
+    const cartoes = [];
+    for (let posicao = 0; posicao < doGrupo.length; posicao++) {
+      const indicador = doGrupo[posicao];
+      cartoes.push(
+        <Cartao
+          key={indicador.chave}
+          indicador={indicador}
+          favorito={favoritos.some((f) => f.indicador === indicador.chave)}
+          onFavoritar={() => alternarFavorito(indicador.chave)}
+          atraso={posicao * 80}
+          largura={larguraDoCartao(grupo)}
+          compacto={!desktop}
+        />,
+      );
+    }
+
+    return (
+      <View key={grupo}>
+        <Text style={estilos.secao}>{grupo}</Text>
+        <View style={estilos.grade}>{cartoes}</View>
+      </View>
+    );
+  }
+
+  // Monta os cartões das moedas achadas na busca.
+  function secaoDasOutrasMoedas() {
+    if (outrasMoedas.length === 0) {
+      return null;
+    }
+
+    const cartoes = [];
+    for (let posicao = 0; posicao < outrasMoedas.length; posicao++) {
+      const moeda = outrasMoedas[posicao];
+      cartoes.push(
+        <Cartao
+          key={moeda.chave}
+          indicador={moeda}
+          favorito={favoritos.some((f) => f.indicador === moeda.chave)}
+          onFavoritar={() => alternarFavorito(moeda.chave)}
+          atraso={posicao * 80}
+          largura={larguraDaBusca}
+        />,
+      );
+    }
+
+    return (
+      <View>
+        <Text style={estilos.secao}>Outras criptomoedas</Text>
+        <View style={estilos.grade}>{cartoes}</View>
+      </View>
+    );
+  }
+
+  // Botões do filtro de grupo.
+  const botoesDoFiltro = [];
+  for (const nome of FILTROS_GRUPO) {
+    botoesDoFiltro.push(<Chip key={nome} texto={nome} ativo={filtro === nome} onPress={() => setFiltro(nome)} />);
+  }
+
+  // Avisos no topo da lista.
+  let aviso = null;
+  if (offline) {
+    const horaDoCache = hora ? ' (atualizados às ' + hora + ')' : '';
+    aviso = <Text style={estilos.aviso}>Você está offline. Mostrando dados do cache{horaDoCache}.</Text>;
+  } else if (semConexao) {
+    aviso = <Text style={estilos.aviso}>Sem conexão com alguma fonte. Mostrando os últimos dados salvos.</Text>;
+  }
+
+  const nadaEncontrado = buscando && indicadoresVisiveis.length === 0 && outrasMoedas.length === 0;
 
   return (
     <SafeAreaView style={estilos.tela} edges={['top']}>
@@ -164,77 +311,24 @@ export default function Painel() {
             accessibilityLabel="Buscar indicador ou moeda"
           />
         </View>
-        <View style={estilos.filtros}>
-          {FILTROS.map((f) => (
-            <Chip key={f} texto={f} ativo={filtro === f} onPress={() => setFiltro(f)} />
-          ))}
-        </View>
+        <View style={estilos.filtros}>{botoesDoFiltro}</View>
       </View>
+
       <ScrollView
         contentContainerStyle={estilos.conteudo}
-        refreshControl={
-          <RefreshControl refreshing={carregando} onRefresh={atualizar} tintColor={cores.destaque} />
-        }>
+        refreshControl={<RefreshControl refreshing={carregando} onRefresh={atualizar} tintColor={cores.destaque} />}>
         <View style={[estilos.centro, desktop && { paddingTop: 24 }]}>
           <Text style={estilos.titulo}>{NOME_APP}</Text>
-          <Text style={estilos.subtitulo}>{hora ? `Atualizado às ${hora}` : 'Sem dados'}</Text>
+          <Text style={estilos.subtitulo}>{hora ? 'Atualizado às ' + hora : 'Sem dados'}</Text>
 
-          {offline ? (
-            <Text style={estilos.aviso}>
-              Você está offline. Mostrando dados do cache{hora ? ` (atualizados às ${hora})` : ''}.
-            </Text>
-          ) : (
-            semConexao && (
-              <Text style={estilos.aviso}>Sem conexão com alguma fonte. Mostrando os últimos dados salvos.</Text>
-            )
-          )}
+          {aviso}
           {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
 
-          {buscando && visiveis.length === 0 && outrasMoedas.length === 0 && (
-            <Text style={estilos.vazio}>Nada encontrado para &quot;{busca.trim()}&quot;.</Text>
-          )}
+          {nadaEncontrado ? <Text style={estilos.vazio}>Nada encontrado para &quot;{busca.trim()}&quot;.</Text> : null}
 
-          {(['Economia', 'Criptomoedas'] as const).map((grupo) => {
-            if (grupoAtivo !== 'Todos' && grupoAtivo !== grupo) return null;
-            const doGrupo = visiveis.filter((i) => i.grupo === grupo);
-            if (doGrupo.length === 0) return null;
-            return (
-              <View key={grupo}>
-                <Text style={estilos.secao}>{grupo}</Text>
-                <View style={estilos.grade}>
-                  {doGrupo.map((indicador, posicao) => (
-                    <Cartao
-                      key={indicador.chave}
-                      indicador={indicador}
-                      favorito={favoritos.some((f) => f.indicador === indicador.chave)}
-                      onFavoritar={() => alternarFavorito(indicador.chave)}
-                      atraso={posicao * 80}
-                      largura={largura(grupo)}
-                      compacto={!desktop}
-                    />
-                  ))}
-                </View>
-              </View>
-            );
-          })}
-
-          {outrasMoedas.length > 0 && (
-            <View>
-              <Text style={estilos.secao}>Outras criptomoedas</Text>
-              <View style={estilos.grade}>
-                {outrasMoedas.map((indicador, posicao) => (
-                  <Cartao
-                    key={indicador.chave}
-                    indicador={indicador}
-                    favorito={favoritos.some((f) => f.indicador === indicador.chave)}
-                    onFavoritar={() => alternarFavorito(indicador.chave)}
-                    atraso={posicao * 80}
-                    largura={larguraBusca}
-                  />
-                ))}
-              </View>
-            </View>
-          )}
+          {secaoDoGrupo('Economia')}
+          {secaoDoGrupo('Criptomoedas')}
+          {secaoDasOutrasMoedas()}
         </View>
       </ScrollView>
     </SafeAreaView>

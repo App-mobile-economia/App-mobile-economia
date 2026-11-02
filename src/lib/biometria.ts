@@ -4,11 +4,19 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { Platform } from 'react-native';
 
 export async function confirmarBiometria(mensagem: string): Promise<boolean> {
-  if (Platform.OS === 'web') return true;
-  const temSensor = await LocalAuthentication.hasHardwareAsync();
-  const cadastrada = await LocalAuthentication.isEnrolledAsync();
-  if (!temSensor || !cadastrada) return true;
+  // 1) No navegador não existe biometria: libera direto.
+  if (Platform.OS === 'web') {
+    return true;
+  }
 
+  // 2) O aparelho precisa ter o sensor e a pessoa precisa ter cadastrado digital ou rosto.
+  const temSensor = await LocalAuthentication.hasHardwareAsync();
+  const temBiometriaCadastrada = await LocalAuthentication.isEnrolledAsync();
+  if (!temSensor || !temBiometriaCadastrada) {
+    return true; // sem biometria, libera para não trancar a pessoa
+  }
+
+  // 3) Pede a biometria e devolve se deu certo.
   const resultado = await LocalAuthentication.authenticateAsync({
     promptMessage: mensagem,
     cancelLabel: 'Cancelar',
