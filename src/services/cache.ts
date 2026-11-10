@@ -13,5 +13,12 @@ export async function salvarCache(dados: Salvo) {
 
 export async function lerCache(): Promise<Salvo | null> {
   const texto = await AsyncStorage.getItem(CHAVE);
-  return texto ? JSON.parse(texto) : null;
+  if (!texto) return null;
+  try {
+    return JSON.parse(texto);
+  } catch {
+    // Cache gravado pela metade: apaga e segue como se não existisse.
+    await AsyncStorage.removeItem(CHAVE);
+    return null;
+  }
 }

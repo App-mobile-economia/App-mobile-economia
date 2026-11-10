@@ -13,7 +13,21 @@ export default function Login() {
   const [mensagem, setMensagem] = useState('');
   const [carregando, setCarregando] = useState(false);
 
+  // Confere e-mail e senha antes de chamar o Supabase; devolve true se estiver tudo certo.
+  function camposValidos() {
+    if (!email.trim()) {
+      setMensagem('Informe o e-mail.');
+      return false;
+    }
+    if (senha.length < 6) {
+      setMensagem('A senha precisa ter no mínimo 6 caracteres.');
+      return false;
+    }
+    return true;
+  }
+
   async function entrar() {
+    if (!camposValidos()) return;
     setCarregando(true);
     setMensagem('');
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
@@ -22,6 +36,7 @@ export default function Login() {
   }
 
   async function criarConta() {
+    if (!camposValidos()) return;
     setCarregando(true);
     setMensagem('');
     const { data, error } = await supabase.auth.signUp({ email, password: senha });
