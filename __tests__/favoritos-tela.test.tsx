@@ -1,3 +1,4 @@
+import { Accelerometer } from 'expo-sensors';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import Favoritos from '@/app/(tabs)/favoritos';
@@ -216,5 +217,24 @@ describe('aba Favoritos: histórico', () => {
     const metas = historicos.mock.calls[0][0];
     expect(metas[0].chave).toBe('cripto:cardano');
     expect(metas[0].idCripto).toBe('cardano');
+  });
+});
+
+describe('aba Favoritos: sacudir', () => {
+  test('sacudir o celular recarrega a lista e busca o histórico de novo', async () => {
+    let enviarLeitura: (leitura: { x: number; y: number; z: number }) => void = () => undefined;
+    (Accelerometer.isAvailableAsync as jest.Mock).mockResolvedValue(true);
+    (Accelerometer.addListener as jest.Mock).mockImplementation((funcao) => {
+      enviarLeitura = funcao;
+      return { remove: jest.fn() };
+    });
+    await abrir();
+    await waitFor(() => expect(historicos).toHaveBeenCalledTimes(1));
+    const listagensAntes = listar.mock.calls.length;
+
+    enviarLeitura({ x: 2, y: 1, z: 1 });
+
+    await waitFor(() => expect(historicos).toHaveBeenCalledTimes(2));
+    expect(listar.mock.calls.length).toBeGreaterThan(listagensAntes);
   });
 });

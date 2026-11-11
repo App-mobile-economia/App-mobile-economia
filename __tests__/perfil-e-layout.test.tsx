@@ -7,7 +7,11 @@ import { confirmarBiometria } from '@/lib/biometria';
 import { supabase } from '@/lib/supabase';
 
 jest.mock('@/lib/biometria', () => ({ confirmarBiometria: jest.fn() }));
+let mockAbriuLink = false;
 jest.mock('@/lib/supabase', () => ({
+  get abriuLinkDeRecuperacao() {
+    return mockAbriuLink;
+  },
   supabase: {
     auth: { getSession: jest.fn(), signOut: jest.fn(), onAuthStateChange: jest.fn(), updateUser: jest.fn() },
   },
@@ -144,6 +148,23 @@ describe('layout raiz (porteiro do app)', () => {
     await fireEvent.changeText(screen.getByLabelText('Repetir nova senha'), 'segredo123');
     await fireEvent.press(screen.getByText('Salvar senha'));
     expect(await screen.findByText('tela:(tabs)')).toBeTruthy();
+  });
+
+  test('abriu o link de recuperação (aviso perdido): mostra a tela de nova senha mesmo assim', async () => {
+    mockAbriuLink = true;
+    pegarSessao.mockResolvedValue({ data: { session: { user: {} } } });
+    await render(<RootLayout />);
+    expect(await screen.findByText('Nova senha')).toBeTruthy();
+    expect(screen.queryByText('tela:(tabs)')).toBeNull();
+    mockAbriuLink = false;
+  });
+
+  test('link de recuperação sem sessão (link vencido): cai no login, não na nova senha', async () => {
+    mockAbriuLink = true;
+    pegarSessao.mockResolvedValue({ data: { session: null } });
+    await render(<RootLayout />);
+    expect(await screen.findByText('tela:login')).toBeTruthy();
+    mockAbriuLink = false;
   });
 
   test('ao fechar, para de escutar as mudanças de sessão', async () => {
