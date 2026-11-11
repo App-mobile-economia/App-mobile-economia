@@ -2,12 +2,13 @@
 // Se o aparelho não tem biometria, ou está no navegador, o conteúdo é liberado direto.
 import { Ionicons } from '@expo/vector-icons';
 import { ReactNode, useEffect, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import TelaCarregando from '@/components/tela-carregando';
 import { cores } from '@/constants/cores';
 import { confirmarBiometria } from '@/lib/biometria';
+import { supabase } from '@/lib/supabase';
 
 // Vale para todas as abas protegidas: depois de autenticar uma vez, não pede de novo
 // até o app ir para segundo plano. Fica fora do componente para ser compartilhada entre as abas.
@@ -39,6 +40,34 @@ export default function ProtegidoPorBiometria({ children }: { children: ReactNod
     } else {
       setEstado('bloqueado');
     }
+  }
+
+  // Desbloqueio pela senha da conta (para quando a biometria falha ou foi cancelada).
+  const [pedindoSenha, setPedindoSenha] = useState(false);
+  const [senha, setSenha] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [conferindo, setConferindo] = useState(false);
+
+  async function desbloquearComSenha() {
+    if (!senha) {
+      setMensagem('Digite a senha da conta.');
+      return;
+    }
+    setConferindo(true);
+    setMensagem('');
+    // Confere a senha entrando de novo com o e-mail da conta que está logada.
+    const { data } = await supabase.auth.getSession();
+    const email = data.session?.user.email ?? '';
+    const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+    setConferindo(false);
+    if (error) {
+      setMensagem('Senha incorreta.');
+      return;
+    }
+    jaLiberado = true;
+    setSenha('');
+    setPedindoSenha(false);
+    setEstado('liberado');
   }
 
   // Ao abrir a aba pela primeira vez, pede a biometria.
@@ -80,6 +109,32 @@ export default function ProtegidoPorBiometria({ children }: { children: ReactNod
           <Ionicons name="finger-print" size={18} color={cores.fundo} />
           <Text style={estilos.textoBotao}>Desbloquear</Text>
         </Pressable>
+
+        {pedindoSenha ? (
+          <View style={estilos.formulario}>
+            <TextInput
+              style={estilos.campo}
+              placeholder="Senha da conta"
+              placeholderTextColor={cores.textoSecundario}
+              secureTextEntry
+              value={senha}
+              onChangeText={setSenha}
+              accessibilityLabel="Senha da conta"
+            />
+            {mensagem ? <Text style={estilos.erro}>{mensagem}</Text> : null}
+            <Pressable
+              style={estilos.botaoSecundario}
+              onPress={desbloquearComSenha}
+              disabled={conferindo}
+              accessibilityRole="button">
+              <Text style={estilos.textoSecundario}>{conferindo ? 'Aguarde...' : 'Confirmar senha'}</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable onPress={() => setPedindoSenha(true)} accessibilityRole="button">
+            <Text style={estilos.link}>Usar a senha da conta</Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -101,4 +156,18 @@ const estilos = StyleSheet.create({
     marginTop: 24,
   },
   textoBotao: { color: cores.fundo, fontWeight: '700', fontSize: 16 },
+  link: { color: cores.textoSecundario, fontSize: 14, textDecorationLine: 'underline', marginTop: 16 },
+  formulario: { width: 280, gap: 12, marginTop: 20 },
+  campo: {
+    backgroundColor: cores.card,
+    borderColor: cores.borda,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    color: cores.textoPrincipal,
+    fontSize: 16,
+  },
+  botaoSecundario: { borderColor: cores.destaque, borderWidth: 1, borderRadius: 12, padding: 12, alignItems: 'center' },
+  textoSecundario: { color: cores.destaque, fontWeight: '700', fontSize: 15 },
+  erro: { color: cores.negativo, fontSize: 13, textAlign: 'center' },
 });

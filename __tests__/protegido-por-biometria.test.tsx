@@ -3,8 +3,15 @@ import { AppState, Text } from 'react-native';
 
 import ProtegidoPorBiometria, { bloquearAbas } from '@/components/protegido-por-biometria';
 import { confirmarBiometria } from '@/lib/biometria';
+import { supabase } from '@/lib/supabase';
 
 jest.mock('@/lib/biometria', () => ({ confirmarBiometria: jest.fn() }));
+jest.mock('@/lib/supabase', () => ({
+  supabase: { auth: { getSession: jest.fn(), signInWithPassword: jest.fn() } },
+}));
+
+const pegarSessao = supabase.auth.getSession as jest.Mock;
+const entrarComSenha = supabase.auth.signInWithPassword as jest.Mock;
 
 const confirmar = confirmarBiometria as jest.Mock;
 
@@ -107,5 +114,43 @@ describe('ProtegidoPorBiometria', () => {
 
     await act(() => aoMudar('inactive'));
     expect(screen.getByText('conteúdo secreto')).toBeTruthy();
+  });
+
+  describe('desbloqueio pela senha da conta', () => {
+    beforeEach(() => {
+      confirmar.mockResolvedValue(false);
+      pegarSessao.mockResolvedValue({ data: { session: { user: { email: 'ana@teste.com' } } } });
+    });
+
+    async function abrirCampoDeSenha() {
+      await render(conteudo());
+      await fireEvent.press(await screen.findByText('Usar a senha da conta'));
+    }
+
+    test('senha correta libera o conteúdo', async () => {
+      entrarComSenha.mockResolvedValue({ error: null });
+      await abrirCampoDeSenha();
+      await fireEvent.changeText(screen.getByLabelText('Senha da conta'), 'segredo123');
+      await fireEvent.press(screen.getByText('Confirmar senha'));
+      expect(await screen.findByText('conteúdo secreto')).toBeTruthy();
+      expect(entrarComSenha).toHaveBeenCalledWith({ email: 'ana@teste.com', password: 'segredo123' });
+    });
+
+    test('senha errada mostra o aviso e mantém bloqueado', async () => {
+      entrarComSenha.mockResolvedValue({ error: { message: 'Invalid login credentials' } });
+      await abrirCampoDeSenha();
+      await fireEvent.changeText(screen.getByLabelText('Senha da conta'), 'errada');
+      await fireEvent.press(screen.getByText('Confirmar senha'));
+      expect(await screen.findByText('Senha incorreta.')).toBeTruthy();
+      expect(screen.queryByText('conteúdo secreto')).toBeNull();
+    });
+
+    test('senha vazia: avisa e não consulta o Supabase', async () => {
+      entrarComSenha.mockClear();
+      await abrirCampoDeSenha();
+      await fireEvent.press(screen.getByText('Confirmar senha'));
+      expect(await screen.findByText('Digite a senha da conta.')).toBeTruthy();
+      expect(entrarComSenha).not.toHaveBeenCalled();
+    });
   });
 });
