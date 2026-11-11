@@ -5,14 +5,14 @@ import { useEffect, useState } from 'react';
 
 import NovaSenha from '@/components/nova-senha';
 import TelaCarregando from '@/components/tela-carregando';
-import { supabase } from '@/lib/supabase';
+import { abriuLinkDeRecuperacao, supabase } from '@/lib/supabase';
 
 export default function RootLayout() {
   // undefined = ainda verificando | null = deslogado | Session = logado
   const [sessao, setSessao] = useState<Session | null | undefined>(undefined);
 
   // true = a pessoa abriu o link do e-mail de recuperar senha e precisa escolher a senha nova
-  const [recuperando, setRecuperando] = useState(false);
+  const [recuperando, setRecuperando] = useState(Boolean(abriuLinkDeRecuperacao));
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSessao(data.session));
@@ -27,7 +27,7 @@ export default function RootLayout() {
   if (sessao === undefined) return <TelaCarregando />;
 
   // Antes de liberar o app, a pessoa escolhe a senha nova.
-  if (recuperando) return <NovaSenha aoTerminar={() => setRecuperando(false)} />;
+  if (recuperando && sessao) return <NovaSenha aoTerminar={() => setRecuperando(false)} />;
 
   return (
     <>
