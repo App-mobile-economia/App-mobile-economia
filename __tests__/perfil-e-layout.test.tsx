@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase';
 jest.mock('@/lib/biometria', () => ({ confirmarBiometria: jest.fn() }));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
-    auth: { getSession: jest.fn(), signOut: jest.fn(), onAuthStateChange: jest.fn() },
+    auth: { getSession: jest.fn(), signOut: jest.fn(), onAuthStateChange: jest.fn(), updateUser: jest.fn() },
   },
 }));
 
@@ -130,6 +130,20 @@ describe('layout raiz (porteiro do app)', () => {
     await screen.findByText('tela:(tabs)');
     await act(() => avisarMudanca('SIGNED_OUT', null));
     expect(await screen.findByText('tela:login')).toBeTruthy();
+  });
+
+  test('link de recuperar senha: mostra a tela de nova senha e depois libera o app', async () => {
+    pegarSessao.mockResolvedValue({ data: { session: null } });
+    ;(supabase.auth.updateUser as jest.Mock).mockResolvedValue({ error: null });
+    await render(<RootLayout />);
+    await screen.findByText('tela:login');
+    await act(() => avisarMudanca('PASSWORD_RECOVERY', { user: {} }));
+    expect(await screen.findByText('Nova senha')).toBeTruthy();
+    expect(screen.queryByText('tela:(tabs)')).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Nova senha'), 'segredo123');
+    await fireEvent.changeText(screen.getByLabelText('Repetir nova senha'), 'segredo123');
+    await fireEvent.press(screen.getByText('Salvar senha'));
+    expect(await screen.findByText('tela:(tabs)')).toBeTruthy();
   });
 
   test('ao fechar, para de escutar as mudanças de sessão', async () => {

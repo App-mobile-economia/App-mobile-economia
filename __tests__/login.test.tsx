@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 
 let mockConfigurado = true;
 jest.mock('@/lib/supabase', () => ({
-  supabase: { auth: { signInWithPassword: jest.fn(), signUp: jest.fn() } },
+  supabase: { auth: { signInWithPassword: jest.fn(), signUp: jest.fn(), resetPasswordForEmail: jest.fn() } },
   get supabaseConfigurado() {
     return mockConfigurado;
   },
@@ -13,6 +13,7 @@ jest.mock('@/lib/supabase', () => ({
 
 const entrarNoSupabase = supabase.auth.signInWithPassword as jest.Mock;
 const cadastrarNoSupabase = supabase.auth.signUp as jest.Mock;
+const recuperarNoSupabase = supabase.auth.resetPasswordForEmail as jest.Mock;
 
 async function preencher(email: string, senha: string) {
   await fireEvent.changeText(screen.getByLabelText('E-mail'), email);
@@ -134,5 +135,29 @@ describe('tela de login', () => {
     await render(<Login />);
     await fireEvent.press(screen.getByText('Entrar'));
     await waitFor(() => expect(entrarNoSupabase).not.toHaveBeenCalled());
+  });
+
+  test('Esqueci minha senha: sem e-mail, avisa e não chama o Supabase', async () => {
+    await render(<Login />);
+    await fireEvent.press(screen.getByText('Esqueci minha senha'));
+    expect(await screen.findByText('Informe o e-mail para recuperar a senha.')).toBeTruthy();
+    expect(recuperarNoSupabase).not.toHaveBeenCalled();
+  });
+
+  test('Esqueci minha senha: envia o e-mail digitado e confirma na tela', async () => {
+    recuperarNoSupabase.mockResolvedValue({ error: null });
+    await render(<Login />);
+    await fireEvent.changeText(screen.getByLabelText('E-mail'), ' ana@teste.com ');
+    await fireEvent.press(screen.getByText('Esqueci minha senha'));
+    expect(await screen.findByText(/Enviamos um link para redefinir a senha/)).toBeTruthy();
+    expect(recuperarNoSupabase).toHaveBeenCalledWith('ana@teste.com', expect.anything());
+  });
+
+  test('Esqueci minha senha: erro do Supabase aparece na tela', async () => {
+    recuperarNoSupabase.mockResolvedValue({ error: { message: 'rate limit' } });
+    await render(<Login />);
+    await fireEvent.changeText(screen.getByLabelText('E-mail'), 'ana@teste.com');
+    await fireEvent.press(screen.getByText('Esqueci minha senha'));
+    expect(await screen.findByText('Não foi possível enviar o e-mail: rate limit')).toBeTruthy();
   });
 });
