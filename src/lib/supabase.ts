@@ -2,6 +2,7 @@
 // A URL e a chave "anon" vêm do arquivo .env (veja .env.example).
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const chave = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -14,6 +15,7 @@ export const supabase = createClient(url ?? 'https://exemplo.supabase.co', chave
     storage: AsyncStorage, // guarda a sessão no aparelho (ou no navegador)
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    // Na web, o link do e-mail de recuperar senha traz a sessão no endereço; o Supabase precisa lê-la.
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });
