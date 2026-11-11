@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NOME_APP } from '@/constants/app';
@@ -45,6 +45,22 @@ export default function Login() {
     setCarregando(false);
   }
 
+  // Envia por e-mail um link para a pessoa escolher uma senha nova.
+  async function recuperarSenha() {
+    if (!email.trim()) {
+      setMensagem('Informe o e-mail para recuperar a senha.');
+      return;
+    }
+    setCarregando(true);
+    setMensagem('');
+    // Na web, o link volta para o próprio site. No celular, o link abre o site publicado.
+    const endereco = Platform.OS === 'web' ? window.location.origin : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: endereco });
+    if (error) setMensagem('Não foi possível enviar o e-mail: ' + error.message);
+    else setMensagem('Enviamos um link para redefinir a senha. Confira o seu e-mail.');
+    setCarregando(false);
+  }
+
   return (
     <SafeAreaView style={estilos.tela}>
       <View style={estilos.caixa}>
@@ -84,6 +100,9 @@ export default function Login() {
         <Pressable style={estilos.botaoSecundario} onPress={criarConta} disabled={carregando} accessibilityRole="button">
           <Text style={estilos.textoSecundario}>Criar conta</Text>
         </Pressable>
+        <Pressable onPress={recuperarSenha} disabled={carregando} accessibilityRole="button">
+          <Text style={estilos.link}>Esqueci minha senha</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -107,5 +126,6 @@ const estilos = StyleSheet.create({
   textoBotao: { color: cores.fundo, fontWeight: '700', fontSize: 16 },
   botaoSecundario: { borderColor: cores.destaque, borderWidth: 1, borderRadius: 12, padding: 14, alignItems: 'center' },
   textoSecundario: { color: cores.destaque, fontWeight: '700', fontSize: 16 },
+  link: { color: cores.textoSecundario, fontSize: 14, textAlign: 'center', textDecorationLine: 'underline' },
   erro: { color: cores.negativo, fontSize: 13 },
 });
