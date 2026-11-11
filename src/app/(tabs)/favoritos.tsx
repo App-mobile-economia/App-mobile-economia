@@ -10,6 +10,7 @@ import EtiquetaVariacao from '@/components/etiqueta-variacao';
 import ProtegidoPorBiometria from '@/components/protegido-por-biometria';
 import { cores, LARGURA_MAXIMA } from '@/constants/cores';
 import { FILTROS_GRUPO, FiltroGrupo, Meta, metaDaChave } from '@/constants/indicadores';
+import { useSacudir } from '@/hooks/use-sacudir';
 import { atualizarNota, Favorito, listarFavoritos, removerFavorito } from '@/services/favoritos';
 import { buscarHistoricos, formatarValor, formatarVariacao, Historico, PERIODOS } from '@/services/historico';
 
@@ -49,6 +50,14 @@ function ListaFavoritos() {
     }, []),
   );
 
+  // Sacudir o celular recarrega a lista e o histórico.
+  // "rodada" muda a cada sacudida e faz o histórico ser buscado de novo.
+  const [rodada, setRodada] = useState(0);
+  useSacudir(() => {
+    carregar();
+    setRodada(rodada + 1);
+  });
+
   // ---------- Carregar o histórico ----------
 
   // Junta as chaves em um texto só (ex.: "ipca,bitcoin"). Assim o efeito abaixo
@@ -85,7 +94,7 @@ function ListaFavoritos() {
     return () => {
       telaAindaAberta = false;
     };
-  }, [chaves, periodo]);
+  }, [chaves, periodo, rodada]);
 
   // Ao trocar de período, apaga o histórico antigo (aparece "Carregando..." até chegar o novo).
   function trocarPeriodo(chave: string) {
