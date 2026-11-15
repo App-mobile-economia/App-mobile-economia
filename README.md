@@ -4,7 +4,7 @@ Aplicativo Expo (React Native) que exibe indicadores econômicos e criptomoedas,
 
 ![Node 24](https://img.shields.io/badge/node-24-blue)
 ![Expo SDK 57](https://img.shields.io/badge/expo-SDK_57-000020)
-![Testes 228](https://img.shields.io/badge/testes-228_aprovados-brightgreen)
+![Testes 209](https://img.shields.io/badge/testes-209_aprovados-brightgreen)
 
 ## Sumário
 
@@ -175,7 +175,7 @@ Decisões de projeto:
 npm test
 ```
 
-Resultado medido em 10/11/2026: 18 arquivos e 228 testes aprovados. `npx tsc --noEmit` e `npx expo lint` não reportaram erros.
+Resultado medido em 15/11/2026: 16 arquivos e 209 testes aprovados. `npx tsc --noEmit` e `npx expo lint` não reportaram erros.
 
 Os testes cobrem formatadores, lista de indicadores, serviços (`api`, `busca`, `historico`, `cache`, `favoritos`), componentes, telas (Painel, Favoritos, Login, Perfil), layout responsivo (limite de 900 px) e PWA (manifesto e service worker). Internet e Supabase são simulados; os testes não acessam serviços reais.
 
