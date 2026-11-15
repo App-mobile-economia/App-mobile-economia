@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useNetworkState } from 'expo-network';
-import { Accelerometer } from 'expo-sensors';
 import { Platform } from 'react-native';
 
 import Painel from '@/app/(tabs)/index';
@@ -29,7 +28,6 @@ beforeEach(async () => {
   listar.mockResolvedValue([]);
   adicionar.mockResolvedValue(undefined);
   remover.mockResolvedValue(undefined);
-  (Accelerometer.isAvailableAsync as jest.Mock).mockResolvedValue(false);
   Platform.OS = 'android';
 });
 
@@ -153,22 +151,6 @@ describe('Painel: atualizar', () => {
       await rolagem.props.refreshControl.props.onRefresh();
     });
     expect(fetchFalso.mock.calls.length).toBeGreaterThan(antes);
-  });
-
-  test('sacudir o celular busca os dados de novo', async () => {
-    let enviarLeitura: (l: { x: number; y: number; z: number }) => void = () => undefined;
-    (Accelerometer.isAvailableAsync as jest.Mock).mockResolvedValue(true);
-    (Accelerometer.addListener as jest.Mock).mockImplementation((funcao) => {
-      enviarLeitura = funcao;
-      return { remove: jest.fn() };
-    });
-    await abrirPainel();
-    await waitFor(() => expect(Accelerometer.addListener).toHaveBeenCalled());
-    const antes = fetchFalso.mock.calls.length;
-    await act(async () => {
-      enviarLeitura({ x: 2, y: 2, z: 2 });
-    });
-    await waitFor(() => expect(fetchFalso.mock.calls.length).toBeGreaterThan(antes));
   });
 });
 

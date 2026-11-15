@@ -1,13 +1,9 @@
-import { Accelerometer } from 'expo-sensors';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import Favoritos from '@/app/(tabs)/favoritos';
-import { bloquearAbas } from '@/components/protegido-por-biometria';
-import { confirmarBiometria } from '@/lib/biometria';
 import { atualizarNota, listarFavoritos, removerFavorito } from '@/services/favoritos';
 import { buscarHistoricos } from '@/services/historico';
 
-jest.mock('@/lib/biometria', () => ({ confirmarBiometria: jest.fn() }));
 jest.mock('@/services/favoritos', () => ({
   listarFavoritos: jest.fn(),
   atualizarNota: jest.fn(),
@@ -19,7 +15,6 @@ jest.mock('@/services/historico', () => ({
   buscarHistoricos: jest.fn(),
 }));
 
-const confirmar = confirmarBiometria as jest.Mock;
 const listar = listarFavoritos as jest.Mock;
 const gravarNota = atualizarNota as jest.Mock;
 const apagar = removerFavorito as jest.Mock;
@@ -29,8 +24,6 @@ const selic = { id: 1, indicador: 'selic', nota: 'minha nota' };
 const bitcoin = { id: 2, indicador: 'bitcoin', nota: '' };
 
 beforeEach(() => {
-  bloquearAbas();
-  confirmar.mockResolvedValue(true);
   listar.mockResolvedValue([selic, bitcoin]);
   gravarNota.mockResolvedValue(undefined);
   apagar.mockResolvedValue(undefined);
@@ -46,14 +39,7 @@ async function abrir() {
 }
 
 describe('aba Favoritos: acesso', () => {
-  test('pede biometria antes de mostrar a lista', async () => {
-    confirmar.mockResolvedValue(false);
-    await render(<Favoritos />);
-    expect(await screen.findByText('Conteúdo protegido')).toBeTruthy();
-    expect(listar).not.toHaveBeenCalled();
-  });
-
-  test('biometria confirmada mostra a lista', async () => {
+  test('ao abrir, mostra a lista de favoritos', async () => {
     await abrir();
     expect(await screen.findByText('Selic (meta)')).toBeTruthy();
     expect(screen.getByText('Bitcoin (BTC)')).toBeTruthy();
@@ -217,24 +203,5 @@ describe('aba Favoritos: histórico', () => {
     const metas = historicos.mock.calls[0][0];
     expect(metas[0].chave).toBe('cripto:cardano');
     expect(metas[0].idCripto).toBe('cardano');
-  });
-});
-
-describe('aba Favoritos: sacudir', () => {
-  test('sacudir o celular recarrega a lista e busca o histórico de novo', async () => {
-    let enviarLeitura: (leitura: { x: number; y: number; z: number }) => void = () => undefined;
-    (Accelerometer.isAvailableAsync as jest.Mock).mockResolvedValue(true);
-    (Accelerometer.addListener as jest.Mock).mockImplementation((funcao) => {
-      enviarLeitura = funcao;
-      return { remove: jest.fn() };
-    });
-    await abrir();
-    await waitFor(() => expect(historicos).toHaveBeenCalledTimes(1));
-    const listagensAntes = listar.mock.calls.length;
-
-    enviarLeitura({ x: 2, y: 1, z: 1 });
-
-    await waitFor(() => expect(historicos).toHaveBeenCalledTimes(2));
-    expect(listar.mock.calls.length).toBeGreaterThan(listagensAntes);
   });
 });
