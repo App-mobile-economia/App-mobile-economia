@@ -16,22 +16,6 @@ jest.mock('@expo/vector-icons', () => {
   };
 });
 
-// Biometria: o teste de cada arquivo decide o que o aparelho responde.
-jest.mock('expo-local-authentication', () => ({
-  hasHardwareAsync: jest.fn(),
-  isEnrolledAsync: jest.fn(),
-  authenticateAsync: jest.fn(),
-}));
-
-// Acelerômetro: o teste dispara as leituras na mão.
-jest.mock('expo-sensors', () => ({
-  Accelerometer: {
-    isAvailableAsync: jest.fn(),
-    setUpdateInterval: jest.fn(),
-    addListener: jest.fn(),
-  },
-}));
-
 // Rede: começa online.
 jest.mock('expo-network', () => ({
   useNetworkState: jest.fn(() => ({ isConnected: true, isInternetReachable: true })),

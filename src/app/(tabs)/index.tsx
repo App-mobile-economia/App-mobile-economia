@@ -12,7 +12,6 @@ import TelaCarregando from '@/components/tela-carregando';
 import { NOME_APP } from '@/constants/app';
 import { cores, LARGURA_DESKTOP, LARGURA_MAXIMA } from '@/constants/cores';
 import { FILTROS_GRUPO, FiltroGrupo, Grupo, INDICADORES } from '@/constants/indicadores';
-import { useSacudir } from '@/hooks/use-sacudir';
 import { buscarTudo, Indicador } from '@/services/api';
 import { buscarMoedas, indicadoresDeMoedas, normalizar } from '@/services/busca';
 import { lerCache, salvarCache } from '@/services/cache';
@@ -72,7 +71,7 @@ export default function Painel() {
     setCarregando(false);
   }
 
-  // Usada ao puxar a tela para atualizar ou ao sacudir o celular.
+  // Usada ao puxar a tela para atualizar e quando a internet volta.
   async function atualizar() {
     setCarregando(true);
     await carregar();
@@ -83,9 +82,6 @@ export default function Painel() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     carregar();
   }, []);
-
-  // Sacudir o celular também atualiza os indicadores.
-  useSacudir(atualizar);
 
   // ---------- Sensor de rede (offline) ----------
 

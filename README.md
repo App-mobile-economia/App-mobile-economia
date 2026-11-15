@@ -38,10 +38,9 @@ O projeto resolve os seguintes problemas:
 
 - Painel com 9 indicadores de economia (IPCA do mês e de 12 meses, INPC, IGP-M, Selic, CDI, dólar, euro e desemprego) e 6 criptomoedas (Bitcoin, Ethereum, Solana, XRP, BNB e Dogecoin).
 - Busca por nome ou palavra-chave e busca de qualquer criptomoeda; filtros Todos, Economia e Criptomoedas.
-- Atualização ao puxar a tela ou ao sacudir o celular.
+- Atualização ao puxar a tela.
 - Favoritos com nota (criar, listar, editar e apagar) e histórico de 7 dias, 30 dias e 12 meses.
 - Login e cadastro com Supabase; cada pessoa acessa apenas os próprios dados (RLS).
-- Biometria para abrir Favoritos e Perfil e para sair da conta.
 - Aviso de modo offline e atualização automática ao voltar a internet.
 - PWA instalável, com service worker.
 
@@ -124,11 +123,7 @@ O resultado é gravado na pasta `dist/`.
 | Recurso | Android (Expo Go) | iPhone (Expo Go) | Navegador / PWA |
 |---|---|---|---|
 | Painel, busca, favoritos e histórico | Sim | Sim | Sim |
-| Sacudir para atualizar | Sim | Sim | Não |
-| Biometria (digital) | Sim | Touch ID | Não (libera direto) |
-| Face ID | Não se aplica | Somente em *development build* | Não |
-
-Sem biometria cadastrada no aparelho, o app libera o acesso direto para não bloquear o usuário.
+| Recuperar senha por e-mail | Não (abre o site) | Não (abre o site) | Sim |
 
 ## Arquitetura
 
@@ -148,15 +143,14 @@ flowchart LR
 | `src/app/login.tsx` | Entrar e criar conta, com validação de e-mail e senha |
 | `src/app/(tabs)/index.tsx` | Painel: busca, filtros e cartões |
 | `src/app/(tabs)/favoritos.tsx` | Lista, edita e apaga favoritos, com histórico |
-| `src/app/(tabs)/perfil.tsx` | E-mail da conta e botão Sair (pede biometria) |
+| `src/app/(tabs)/perfil.tsx` | E-mail da conta e botão Sair |
 | `src/constants/indicadores.ts` | Lista dos indicadores; incluir um novo exige uma linha |
 | `src/services/api.ts` | Valores atuais: Banco Central e CoinGecko |
 | `src/services/historico.ts` | Histórico e variação por período |
 | `src/services/busca.ts` | Busca de moedas por nome |
 | `src/services/favoritos.ts` | CRUD no Supabase |
 | `src/services/cache.ts` | Cache para o modo offline |
-| `src/hooks/use-sacudir.ts` | Leitura do acelerômetro |
-| `src/lib/` | Cliente Supabase e biometria |
+| `src/lib/` | Cliente Supabase |
 | `public/` | `manifest.json`, `sw.js` e ícones do PWA |
 
 Decisões de projeto:
@@ -183,7 +177,7 @@ npm test
 
 Resultado medido em 10/11/2026: 18 arquivos e 228 testes aprovados. `npx tsc --noEmit` e `npx expo lint` não reportaram erros.
 
-Os testes cobrem formatadores, lista de indicadores, serviços (`api`, `busca`, `historico`, `cache`, `favoritos`), biometria, hook de sacudir, componentes, telas (Painel, Favoritos, Login, Perfil), layout responsivo (limite de 900 px) e PWA (manifesto e service worker). Internet, Supabase, biometria e acelerômetro são simulados; os testes não acessam serviços reais.
+Os testes cobrem formatadores, lista de indicadores, serviços (`api`, `busca`, `historico`, `cache`, `favoritos`), componentes, telas (Painel, Favoritos, Login, Perfil), layout responsivo (limite de 900 px) e PWA (manifesto e service worker). Internet e Supabase são simulados; os testes não acessam serviços reais.
 
 ## Estrutura do projeto
 
@@ -194,10 +188,9 @@ Os testes cobrem formatadores, lista de indicadores, serviços (`api`, `busca`, 
 ├── public/           # manifest.json, sw.js e index.html do PWA
 ├── src/
 │   ├── app/          # telas e rotas (Expo Router)
-│   ├── components/   # cartão, chip, etiqueta, biometria e tela de carregamento
+│   ├── components/   # cartão, chip, etiqueta e tela de carregamento
 │   ├── constants/    # app, cores e indicadores
-│   ├── hooks/        # use-sacudir
-│   ├── lib/          # supabase e biometria
+│   ├── lib/          # supabase
 │   ├── services/     # api, busca, cache, favoritos e histórico
 │   └── utils/        # formatadores
 ├── supabase/         # schema.sql (tabela favoritos com RLS)
@@ -217,9 +210,7 @@ Site publicado: https://app-mobile-economia.onrender.com
 
 ## Limitações conhecidas
 
-- Os testes automatizados não cobrem biometria real, acelerômetro real, cadastro e RLS no Supabase real, instalação do PWA nem uso offline no navegador; esses itens exigem teste manual.
-- O Face ID só funciona em *development build*, não no Expo Go.
-- A biometria e o sacudir não existem na versão web.
+- Os testes automatizados não cobrem cadastro e RLS no Supabase real, instalação do PWA nem uso offline no navegador; esses itens exigem teste manual.
 - Os dados dependem de APIs públicas (Banco Central e CoinGecko) e podem sofrer limite de requisições.
 - O comando `npm run build` e a publicação no Render não foram executados durante a elaboração deste README.
 

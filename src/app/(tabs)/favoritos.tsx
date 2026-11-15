@@ -7,23 +7,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Chip from '@/components/chip';
 import EtiquetaVariacao from '@/components/etiqueta-variacao';
-import ProtegidoPorBiometria from '@/components/protegido-por-biometria';
 import { cores, LARGURA_MAXIMA } from '@/constants/cores';
 import { FILTROS_GRUPO, FiltroGrupo, Meta, metaDaChave } from '@/constants/indicadores';
-import { useSacudir } from '@/hooks/use-sacudir';
 import { atualizarNota, Favorito, listarFavoritos, removerFavorito } from '@/services/favoritos';
 import { buscarHistoricos, formatarValor, formatarVariacao, Historico, PERIODOS } from '@/services/historico';
 
-// A aba só abre depois da digital ou do rosto.
 export default function Favoritos() {
-  return (
-    <ProtegidoPorBiometria>
-      <ListaFavoritos />
-    </ProtegidoPorBiometria>
-  );
-}
-
-function ListaFavoritos() {
   const [favoritos, setFavoritos] = useState<Favorito[]>([]);
   const [erro, setErro] = useState('');
   const [periodo, setPeriodo] = useState('30d'); // chave do período escolhido
@@ -49,14 +38,6 @@ function ListaFavoritos() {
       carregar();
     }, []),
   );
-
-  // Sacudir o celular recarrega a lista e o histórico.
-  // "rodada" muda a cada sacudida e faz o histórico ser buscado de novo.
-  const [rodada, setRodada] = useState(0);
-  useSacudir(() => {
-    carregar();
-    setRodada(rodada + 1);
-  });
 
   // ---------- Carregar o histórico ----------
 
@@ -94,7 +75,7 @@ function ListaFavoritos() {
     return () => {
       telaAindaAberta = false;
     };
-  }, [chaves, periodo, rodada]);
+  }, [chaves, periodo]);
 
   // Ao trocar de período, apaga o histórico antigo (aparece "Carregando..." até chegar o novo).
   function trocarPeriodo(chave: string) {

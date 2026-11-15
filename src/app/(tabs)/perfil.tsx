@@ -3,22 +3,11 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import ProtegidoPorBiometria, { bloquearAbas } from '@/components/protegido-por-biometria';
 import { NOME_APP } from '@/constants/app';
 import { cores } from '@/constants/cores';
-import { confirmarBiometria } from '@/lib/biometria';
 import { supabase } from '@/lib/supabase';
 
-// A aba só abre depois da digital ou do rosto.
 export default function Perfil() {
-  return (
-    <ProtegidoPorBiometria>
-      <DadosDoPerfil />
-    </ProtegidoPorBiometria>
-  );
-}
-
-function DadosDoPerfil() {
   const [email, setEmail] = useState('');
 
   // Ao abrir a aba, busca o e-mail da pessoa que está logada.
@@ -32,13 +21,8 @@ function DadosDoPerfil() {
     buscarEmail();
   }, []);
 
-  // Pede biometria antes de sair da conta.
+  // Sai da conta.
   async function sair() {
-    const confirmou = await confirmarBiometria('Confirme para sair');
-    if (!confirmou) {
-      return; // a pessoa cancelou: continua logada
-    }
-    bloquearAbas(); // a próxima pessoa que entrar também passa pela biometria
     await supabase.auth.signOut();
   }
 

@@ -2,11 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import RootLayout from '@/app/_layout';
 import Perfil from '@/app/(tabs)/perfil';
-import { bloquearAbas } from '@/components/protegido-por-biometria';
-import { confirmarBiometria } from '@/lib/biometria';
 import { supabase } from '@/lib/supabase';
 
-jest.mock('@/lib/biometria', () => ({ confirmarBiometria: jest.fn() }));
 let mockAbriuLink = false;
 jest.mock('@/lib/supabase', () => ({
   get abriuLinkDeRecuperacao() {
@@ -26,15 +23,12 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-const confirmar = confirmarBiometria as jest.Mock;
 const pegarSessao = supabase.auth.getSession as jest.Mock;
 const sair = supabase.auth.signOut as jest.Mock;
 const escutar = supabase.auth.onAuthStateChange as jest.Mock;
 
 describe('aba Perfil', () => {
   beforeEach(() => {
-    bloquearAbas();
-    confirmar.mockResolvedValue(true);
     pegarSessao.mockResolvedValue({ data: { session: { user: { email: 'ana@teste.com' } } } });
     sair.mockResolvedValue({ error: null });
   });
@@ -52,39 +46,10 @@ describe('aba Perfil', () => {
     expect(screen.queryByText(/@/)).toBeNull();
   });
 
-  test('a aba só abre depois da biometria', async () => {
-    confirmar.mockResolvedValue(false);
-    await render(<Perfil />);
-    expect(await screen.findByText('Conteúdo protegido')).toBeTruthy();
-    expect(screen.queryByText('Sair')).toBeNull();
-  });
-
-  test('Sair pede biometria e depois encerra a sessão', async () => {
+  test('Sair encerra a sessão', async () => {
     await render(<Perfil />);
     await fireEvent.press(await screen.findByText('Sair'));
     await waitFor(() => expect(sair).toHaveBeenCalledTimes(1));
-    expect(confirmar).toHaveBeenCalledWith('Confirme para sair');
-  });
-
-  test('Sair com biometria cancelada continua logado', async () => {
-    await render(<Perfil />);
-    const botao = await screen.findByText('Sair');
-    confirmar.mockClear();
-    confirmar.mockResolvedValue(false);
-    await fireEvent.press(botao);
-    await waitFor(() => expect(confirmar).toHaveBeenCalledWith('Confirme para sair'));
-    expect(sair).not.toHaveBeenCalled();
-  });
-
-  test('ao sair, a próxima aba volta a pedir biometria', async () => {
-    const primeira = await render(<Perfil />);
-    await fireEvent.press(await primeira.findByText('Sair'));
-    await waitFor(() => expect(sair).toHaveBeenCalled());
-    await primeira.unmount();
-
-    confirmar.mockClear();
-    await render(<Perfil />);
-    await waitFor(() => expect(confirmar).toHaveBeenCalledWith('Confirme que é você'));
   });
 });
 
